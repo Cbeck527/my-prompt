@@ -18,8 +18,12 @@ impl UsernameModule {
 }
 
 impl Module for UsernameModule {
-    #[allow(unused)]
-    fn render(&self, format: &str, _context: &ModuleContext) -> Result<Option<String>> {
-        Ok(Some(username()))
+    fn render(&self, _format: &str, _context: &ModuleContext) -> Result<Option<String>> {
+        let actual_username = username();
+        let display_name = match actual_username.as_str() {
+            "christopher.becker" => "chris",
+            _ => &actual_username,
+        };
+        Ok(Some(display_name.to_string()))
     }
 }
