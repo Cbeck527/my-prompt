@@ -1,0 +1,95 @@
+use crate::error::Result;
+use crate::module_trait::ModuleContext;
+use crate::parser::{Token, parse};
+use crate::registry::ModuleRegistry;
+use crate::style::{AnsiStyle, ModuleStyle};
+
+/// A parsed template that can be rendered multiple times efficiently
+pub struct Template<'a> {
+    tokens: Vec<Token<'a>>,
+    estimated_size: usize,
+}
+
+impl<'a> Template<'a> {
+    /// Parse a template string into a reusable Template
+    #[inline]
+    #[must_use]
+    pub fn new(template: &'a str) -> Self {
+        let tokens = parse(template);
+        let estimated_size = template.len() + (template.len() / 2) + 128;
+        Self {
+            tokens,
+            estimated_size,
+        }
+    }
+
+    /// Render the template with the given registry and context
+    pub fn render(&self, registry: &ModuleRegistry, context: &ModuleContext) -> Result<String> {
+        let mut output = String::with_capacity(self.estimated_size);
+
+        // Check for NO_COLOR environment variable
+        let no_color = std::env::var("NO_COLOR").is_ok()
+            || !is_terminal::IsTerminal::is_terminal(&std::io::stdout());
+
+        for token in &self.tokens {
+            match token {
+                Token::Text(text) => {
+                    output.push_str(text);
+                }
+                Token::Placeholder(params) => {
+                    let module = registry.get(&params.module).ok_or_else(|| {
+                        crate::error::PromptError::UnknownModule(params.module.clone())
+                    })?;
+
+                    if let Some(text) = module.render(&params.format, context)?
+                        && !text.is_empty()
+                    {
+                        let has_prefix = !params.prefix.is_empty();
+                        let has_suffix = !params.suffix.is_empty();
+                        let styled = !params.style.is_empty() && !no_color;
+
+                        if styled {
+                            let style = AnsiStyle::parse(&params.style).map_err(|error| {
+                                crate::error::PromptError::StyleError {
+                                    module: params.module.clone(),
+                                    error,
+                                }
+                            })?;
+
+                            style.write_start_codes(&mut output);
+                            if has_prefix {
+                                output.push_str(&params.prefix);
+                            }
+                            output.push_str(&text);
+                            if has_suffix {
+                                output.push_str(&params.suffix);
+                            }
+                            style.write_reset(&mut output);
+                        } else {
+                            if has_prefix {
+                                output.push_str(&params.prefix);
+                            }
+                            output.push_str(&text);
+                            if has_suffix {
+                                output.push_str(&params.suffix);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(output)
+    }
+
+    /// Get an iterator over the tokens in this template
+    pub fn tokens(&self) -> impl Iterator<Item = &Token<'a>> {
+        self.tokens.iter()
+    }
+
+    /// Get the number of tokens in this template
+    #[must_use]
+    pub fn token_count(&self) -> usize {
+        self.tokens.len()
+    }
+}
