@@ -2,6 +2,7 @@ use crate::cache::{GIT_CACHE, GitInfo};
 use crate::error::{PromptError, Result};
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils;
+use crate::style::{AnsiStyle, ModuleStyle};
 use bitflags::bitflags;
 use std::path::PathBuf;
 
@@ -57,6 +58,15 @@ fn get_git_status_slow(repo_root: &PathBuf) -> GitStatus {
     status
 }
 
+fn parse_git_format(format: &str) -> (&str, Option<String>) {
+    if let Some((base_fmt, rest)) = format.split_once(',') {
+        if let Some(status_style) = rest.strip_prefix("status=") {
+            return (base_fmt, Some(status_style.to_string()));
+        }
+    }
+    (format, None)
+}
+
 fn validate_git_format(format: &str) -> Result<&str> {
     match format {
         "" | "full" | "f" => Ok("full"),
@@ -71,8 +81,11 @@ fn validate_git_format(format: &str) -> Result<&str> {
 
 impl Module for GitModule {
     fn render(&self, format: &str, _context: &ModuleContext) -> Result<Option<String>> {
-        // Validate format first
-        let normalized_format = validate_git_format(format)?;
+        // Parse format to extract base format and optional status color
+        let (base_format, status_color) = parse_git_format(format);
+
+        // Validate format
+        let normalized_format = validate_git_format(base_format)?;
 
         // Fast path: find git directory
         let Some(git_dir) = utils::find_upward(".git") else {
@@ -89,13 +102,30 @@ impl Module for GitModule {
                 "full" => {
                     let mut result = cached.branch.clone();
                     if cached.has_changes || cached.has_untracked {
-                        result.push(' ');
-                    }
-                    if cached.has_changes {
-                        result.push('*');
-                    }
-                    if cached.has_untracked {
-                        result.push('?');
+                        // Build status indicators
+                        let mut indicators = String::new();
+                        if cached.has_changes {
+                            indicators.push('+');
+                        }
+                        if cached.has_untracked {
+                            indicators.push('?');
+                        }
+
+                        // Apply color if specified
+                        if let Some(ref status_color) = status_color {
+                            let style = AnsiStyle::parse(status_color).map_err(|e| {
+                                PromptError::StyleError {
+                                    module: "git".to_string(),
+                                    error: e,
+                                }
+                            })?;
+                            // Write red start codes, indicators, then reset
+                            result.push_str(&style.apply(&indicators));
+                            // Restore outer blue color for suffix
+                            result.push_str("\x1b[34m");
+                        } else {
+                            result.push_str(&indicators);
+                        }
                     }
                     Some(result)
                 }
@@ -142,13 +172,30 @@ impl Module for GitModule {
             "full" => {
                 let mut result = branch_name;
                 if !status.is_empty() {
-                    result.push(' ');
-                }
-                if status.contains(GitStatus::MODIFIED) {
-                    result.push('+');
-                }
-                if status.contains(GitStatus::UNTRACKED) {
-                    result.push('?');
+                    // Build status indicators
+                    let mut indicators = String::new();
+                    if status.contains(GitStatus::MODIFIED) {
+                        indicators.push('+');
+                    }
+                    if status.contains(GitStatus::UNTRACKED) {
+                        indicators.push('?');
+                    }
+
+                    // Apply color if specified
+                    if let Some(ref status_color) = status_color {
+                        let style = AnsiStyle::parse(status_color).map_err(|e| {
+                            PromptError::StyleError {
+                                module: "git".to_string(),
+                                error: e,
+                            }
+                        })?;
+                        // Write red start codes, indicators, then reset
+                        result.push_str(&style.apply(&indicators));
+                        // HACK: restore outer blue color for suffix
+                        result.push_str("\x1b[34m");
+                    } else {
+                        result.push_str(&indicators);
+                    }
                 }
                 Some(result)
             }

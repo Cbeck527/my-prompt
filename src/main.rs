@@ -12,8 +12,7 @@ mod parser;
 mod registry;
 mod style;
 
-const MY_PROMPT_FORMAT: &str =
-    "{fail:red:code:[:]\n}{username:green} {path:white} {git:blue:full:[:]} {character:white:$} ";
+const MY_PROMPT_FORMAT: &str = "{fail:red:code:[:]\n}{username:green} {path:white} {git:blue:full,status=red:[:]} {character:white:$} ";
 
 const MY_TRANSIENT_PROMPT_FORMAT: &str = "{time:yellow:12h:[:]} {character:white:$} ";
 
