@@ -20,7 +20,12 @@ impl Module for TimeModule {
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Yellow, false);
-            Ok(Some(format!("{}[{}]{} ", style.start_codes(), formatted, AnsiStyle::RESET)))
+            Ok(Some(format!(
+                "{}[{}]{} ",
+                style.start_codes(),
+                formatted,
+                AnsiStyle::RESET
+            )))
         }
     }
 }
@@ -45,7 +50,11 @@ mod tests {
 
         // Extract just the time part (between brackets)
         let re = Regex::new(r"\[(\d{2}:\d{2}(AM|PM))\]").unwrap();
-        assert!(re.is_match(&output), "Expected [hh:MMAM/PM] format, got: {}", output);
+        assert!(
+            re.is_match(&output),
+            "Expected [hh:MMAM/PM] format, got: {}",
+            output
+        );
     }
 
     #[test]
@@ -62,7 +71,11 @@ mod tests {
 
         // Should be plain text with brackets
         let re = Regex::new(r"^\[\d{2}:\d{2}(AM|PM)\] $").unwrap();
-        assert!(re.is_match(&output), "Expected plain [hh:MMAM/PM] format, got: {}", output);
+        assert!(
+            re.is_match(&output),
+            "Expected plain [hh:MMAM/PM] format, got: {}",
+            output
+        );
     }
 
     #[test]

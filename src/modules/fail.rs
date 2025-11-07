@@ -30,7 +30,12 @@ impl Module for FailModule {
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Red, false);
-            Ok(Some(format!("{}[{}]{}\n", style.start_codes(), text, AnsiStyle::RESET)))
+            Ok(Some(format!(
+                "{}[{}]{}\n",
+                style.start_codes(),
+                text,
+                AnsiStyle::RESET
+            )))
         }
     }
 }

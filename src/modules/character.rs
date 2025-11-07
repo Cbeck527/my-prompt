@@ -25,7 +25,12 @@ impl Module for CharacterModule {
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::White, false);
-            Ok(Some(format!("{}{}{} ", style.start_codes(), symbol, AnsiStyle::RESET)))
+            Ok(Some(format!(
+                "{}{}{} ",
+                style.start_codes(),
+                symbol,
+                AnsiStyle::RESET
+            )))
         }
     }
 }

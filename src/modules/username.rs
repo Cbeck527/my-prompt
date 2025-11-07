@@ -30,7 +30,12 @@ impl Module for UsernameModule {
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Green, false);
-            Ok(Some(format!("{}{}{} ", style.start_codes(), display_name, AnsiStyle::RESET)))
+            Ok(Some(format!(
+                "{}{}{} ",
+                style.start_codes(),
+                display_name,
+                AnsiStyle::RESET
+            )))
         }
     }
 }

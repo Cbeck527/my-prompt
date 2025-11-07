@@ -36,16 +36,10 @@ pub const PROMPT_FORMAT: &[PromptModule] = &[
     PromptModule::Character,
 ];
 
-pub const TRANSIENT_FORMAT: &[PromptModule] = &[
-    PromptModule::Time,
-    PromptModule::Character,
-];
+pub const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
 
 pub fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> Result<String> {
-    let parts: Vec<_> = modules
-        .par_iter()
-        .map(|m| m.render(context))
-        .collect();
+    let parts: Vec<_> = modules.par_iter().map(|m| m.render(context)).collect();
 
     let mut output = String::new();
     for result in parts {

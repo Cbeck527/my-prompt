@@ -28,7 +28,12 @@ impl Module for HostnameModule {
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Cyan, false);
-            Ok(Some(format!("{}{}{} ", style.start_codes(), hostname, AnsiStyle::RESET)))
+            Ok(Some(format!(
+                "{}{}{} ",
+                style.start_codes(),
+                hostname,
+                AnsiStyle::RESET
+            )))
         }
     }
 }
