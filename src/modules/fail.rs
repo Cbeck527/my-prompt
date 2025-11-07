@@ -25,7 +25,7 @@ impl Module for FailModule {
 
         let symbol = match format {
             "" | "full" => "❯".to_string(),
-            "code" => exit_code.to_string(),
+            "code" => format!("exit: {exit_code}"),
             custom => custom.to_string(),
         };
 
