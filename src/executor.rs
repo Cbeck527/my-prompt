@@ -77,7 +77,7 @@ pub fn execute(format_str: &str, exit_code: Option<i32>, no_color: bool) -> Resu
 }
 
 fn register_builtin_modules(registry: &mut ModuleRegistry) {
-    use crate::modules::{fail, git, hostname, ok, path, time, username};
+    use crate::modules::{character, fail, git, hostname, path, time, username};
     use std::sync::Arc;
 
     // Configure Rayon thread pool for prompt generation
@@ -95,9 +95,9 @@ fn register_builtin_modules(registry: &mut ModuleRegistry) {
     // Register modules - these are lightweight operations
     registry.register("path", Arc::new(path::PathModule));
     registry.register("git", Arc::new(git::GitModule));
-    registry.register("ok", Arc::new(ok::OkModule));
     registry.register("fail", Arc::new(fail::FailModule));
     registry.register("time", Arc::new(time::TimeModule));
     registry.register("hostname", Arc::new(hostname::HostnameModule));
     registry.register("username", Arc::new(username::UsernameModule));
+    registry.register("character", Arc::new(character::CharacterModule));
 }
