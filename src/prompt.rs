@@ -39,6 +39,11 @@ pub const PROMPT_FORMAT: &[PromptModule] = &[
 
 pub const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
 
+/// Renders the given modules in parallel and combines their output.
+///
+/// # Errors
+///
+/// Returns `PromptError::ExternalCommandFailed` if any module's external command fails.
 pub fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> Result<String> {
     let parts: Vec<_> = modules.par_iter().map(|m| m.render(context)).collect();
 

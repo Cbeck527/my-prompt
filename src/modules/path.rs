@@ -59,7 +59,7 @@ impl Module for PathModule {
         let path = normalize_relative_path(&current_dir);
 
         if context.no_color {
-            Ok(Some(format!("{} ", path)))
+            Ok(Some(format!("{path} ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::White, false);

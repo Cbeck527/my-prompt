@@ -23,10 +23,10 @@ impl Module for FailModule {
             return Ok(None);
         }
 
-        let text = format!("exit: {}", exit_code);
+        let text = format!("exit: {exit_code}");
 
         if context.no_color {
-            Ok(Some(format!("[{}]\n", text)))
+            Ok(Some(format!("[{text}]\n")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Red, false);

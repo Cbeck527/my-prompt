@@ -21,7 +21,7 @@ impl Module for CharacterModule {
         let symbol = "$";
 
         if context.no_color {
-            Ok(Some(format!("{} ", symbol)))
+            Ok(Some(format!("{symbol} ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::White, false);

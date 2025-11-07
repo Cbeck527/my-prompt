@@ -26,7 +26,7 @@ impl Module for UsernameModule {
         };
 
         if context.no_color {
-            Ok(Some(format!("{} ", display_name)))
+            Ok(Some(format!("{display_name} ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Green, false);

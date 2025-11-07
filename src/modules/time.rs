@@ -16,7 +16,7 @@ impl Module for TimeModule {
         let formatted = now.format("%I:%M%p").to_string();
 
         if context.no_color {
-            Ok(Some(format!("[{}] ", formatted)))
+            Ok(Some(format!("[{formatted}] ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Yellow, false);

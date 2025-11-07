@@ -51,10 +51,12 @@ pub struct AnsiStyle {
 impl AnsiStyle {
     pub const RESET: &'static str = "\x1b[0m";
 
+    #[must_use]
     pub fn new(color: Color, bold: bool) -> Self {
         Self { color, bold }
     }
 
+    #[must_use]
     pub fn start_codes(&self) -> String {
         let mut buf = String::new();
         self.color.push_ansi_code(&mut buf);

@@ -119,9 +119,9 @@ impl Module for GitModule {
 
         if context.no_color {
             if indicators.is_empty() {
-                Ok(Some(format!("[{}] ", branch_name)))
+                Ok(Some(format!("[{branch_name}] ")))
             } else {
-                Ok(Some(format!("[{}{}] ", branch_name, indicators)))
+                Ok(Some(format!("[{branch_name}{indicators}] ")))
             }
         } else {
             let blue = AnsiStyle::new(Color::Blue, false);

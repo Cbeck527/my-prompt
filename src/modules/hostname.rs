@@ -24,7 +24,7 @@ impl Module for HostnameModule {
         };
 
         if context.no_color {
-            Ok(Some(format!("{} ", hostname)))
+            Ok(Some(format!("{hostname} ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Cyan, false);

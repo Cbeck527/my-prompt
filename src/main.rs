@@ -16,6 +16,7 @@ mod style;
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
 #[command(version)]
+#[allow(clippy::struct_excessive_bools)]
 struct Cli {
     #[arg(long)]
     debug: bool,
@@ -79,7 +80,7 @@ fn handle_format(
         let output = prompt::render_prompt(modules, &context)?;
         let elapsed = start.elapsed();
 
-        eprintln!("Modules: {:?}", modules);
+        eprintln!("Modules: {modules:?}");
         eprintln!("Execution time: {:.2}ms", elapsed.as_secs_f64() * 1000.0);
 
         Ok(output)
