@@ -76,7 +76,7 @@ impl Module for GitModule {
                 (cached.branch, cached.has_changes, cached.has_untracked)
             } else {
                 // Open repo to get branch and status
-                let Ok(repo) = gix::open(&repo_root) else {
+                let Ok(repo) = gix::open(repo_root) else {
                     return Ok(None);
                 };
 
