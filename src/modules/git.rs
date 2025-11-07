@@ -9,7 +9,6 @@ bitflags! {
     #[derive(Debug, Clone, Copy)]
     struct GitStatus: u8 {
         const MODIFIED = 0b001;
-        const STAGED = 0b010;
         const UNTRACKED = 0b100;
     }
 }
@@ -50,9 +49,6 @@ fn get_git_status_slow(repo_root: &PathBuf) -> GitStatus {
             } else if !line.is_empty() {
                 let chars: Vec<char> = line.chars().take(2).collect();
                 if chars.len() >= 2 {
-                    if chars[0] != ' ' && chars[0] != '?' {
-                        status |= GitStatus::STAGED;
-                    }
                     if chars[1] != ' ' && chars[1] != '?' {
                         status |= GitStatus::MODIFIED;
                     }
@@ -81,7 +77,9 @@ impl Module for GitModule {
         let normalized_format = validate_git_format(format)?;
 
         // Fast path: find git directory
-        let Some(git_dir) = utils::find_upward(".git") else { return Ok(None) };
+        let Some(git_dir) = utils::find_upward(".git") else {
+            return Ok(None);
+        };
         let repo_root = match git_dir.parent() {
             Some(p) => p.to_path_buf(),
             None => return Ok(None),
@@ -92,11 +90,11 @@ impl Module for GitModule {
             return Ok(match normalized_format {
                 "full" => {
                     let mut result = cached.branch.clone();
+                    if cached.has_changes || cached.has_untracked {
+                        result.push(' ');
+                    }
                     if cached.has_changes {
                         result.push('*');
-                    }
-                    if cached.has_staged {
-                        result.push('+');
                     }
                     if cached.has_untracked {
                         result.push('?');
@@ -109,7 +107,9 @@ impl Module for GitModule {
         }
 
         // Open repo with minimal operations
-        let Ok(repo) = gix::open(&repo_root) else { return Ok(None) };
+        let Ok(repo) = gix::open(&repo_root) else {
+            return Ok(None);
+        };
 
         // Get branch name efficiently
         let branch_name = if let Ok(Some(head_ref)) = repo.head_ref() {
@@ -118,7 +118,8 @@ impl Module for GitModule {
         } else if let Ok(Some(head_name)) = repo.head_name() {
             String::from_utf8(head_name.shorten().to_vec()).unwrap_or_else(|_| "HEAD".to_string())
         } else if let Ok(head) = repo.head() {
-            head.id().map_or_else(|| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
+            head.id()
+                .map_or_else(|| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
         } else {
             "HEAD".to_string()
         };
@@ -134,7 +135,6 @@ impl Module for GitModule {
         let info = GitInfo {
             branch: branch_name.clone(),
             has_changes: status.contains(GitStatus::MODIFIED),
-            has_staged: status.contains(GitStatus::STAGED),
             has_untracked: status.contains(GitStatus::UNTRACKED),
         };
         GIT_CACHE.insert(repo_root, info);
@@ -143,10 +143,10 @@ impl Module for GitModule {
         Ok(match normalized_format {
             "full" => {
                 let mut result = branch_name;
-                if status.contains(GitStatus::MODIFIED) {
-                    result.push('*');
+                if !status.is_empty() {
+                    result.push(' ');
                 }
-                if status.contains(GitStatus::STAGED) {
+                if status.contains(GitStatus::MODIFIED) {
                     result.push('+');
                 }
                 if status.contains(GitStatus::UNTRACKED) {

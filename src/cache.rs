@@ -40,7 +40,6 @@ pub struct GitCache {
 pub struct GitInfo {
     pub branch: String,
     pub has_changes: bool,
-    pub has_staged: bool,
     pub has_untracked: bool,
 }
 
