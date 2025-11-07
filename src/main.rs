@@ -14,8 +14,8 @@ mod registry;
 mod style;
 
 #[derive(Parser)]
-#[command(name = "my-prmt")]
-#[command(about = "Ultra-fast customizable shell prompt generator")]
+#[command(name = "my-prompt")]
+#[command(about = "This is my prompt. There are many like it, but this one is mine.")]
 #[command(version)]
 struct Cli {
     format: Option<String>,
