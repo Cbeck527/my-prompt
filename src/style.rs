@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)] // I might use some of these colors in the future...
 pub enum Color {
     Black,
     Red,

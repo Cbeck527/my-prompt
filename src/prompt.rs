@@ -10,6 +10,7 @@ pub enum PromptModule {
     Path,
     Git,
     Time,
+    #[allow(dead_code)] // I might use hostname in the future...
     Hostname,
     Character,
 }

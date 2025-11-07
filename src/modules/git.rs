@@ -1,5 +1,5 @@
 use crate::cache::{GIT_CACHE, GitInfo};
-use crate::error::{PromptError, Result};
+use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils;
 use bitflags::bitflags;

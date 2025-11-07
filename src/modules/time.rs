@@ -1,4 +1,4 @@
-use crate::error::{PromptError, Result};
+use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use chrono::Local;
 
