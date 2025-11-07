@@ -48,10 +48,8 @@ fn get_git_status_slow(repo_root: &PathBuf) -> GitStatus {
                 status |= GitStatus::UNTRACKED;
             } else if !line.is_empty() {
                 let chars: Vec<char> = line.chars().take(2).collect();
-                if chars.len() >= 2 {
-                    if chars[1] != ' ' && chars[1] != '?' {
-                        status |= GitStatus::MODIFIED;
-                    }
+                if chars.len() >= 2 && chars[1] != ' ' && chars[1] != '?' {
+                    status |= GitStatus::MODIFIED;
                 }
             }
         }
