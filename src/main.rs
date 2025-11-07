@@ -13,7 +13,9 @@ mod registry;
 mod style;
 
 const MY_PROMPT_FORMAT: &str =
-    "{username:green} {time:yellow:12h:[:]} {path:white} {git:blue:full:[:]}";
+    "{fail:red:code:[:]\n}{username:green} {path:white} {git:blue:full:[:]} {character:white:$} ";
+
+const MY_TRANSIENT_PROMPT_FORMAT: &str = "{time:yellow:12h:[:]} {character:white:$} ";
 
 #[derive(Parser)]
 #[command(name = "my-prompt")]
@@ -31,15 +33,24 @@ struct Cli {
 
     #[arg(long)]
     no_color: bool,
+
+    #[arg(long, alias = "transient")]
+    final_rendering: bool,
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    let result = if cli.bench {
-        handle_bench(MY_PROMPT_FORMAT, cli.code, cli.no_color)
+    let format = if cli.final_rendering {
+        MY_TRANSIENT_PROMPT_FORMAT
     } else {
-        handle_format(MY_PROMPT_FORMAT, cli.debug, cli.code, cli.no_color)
+        MY_PROMPT_FORMAT
+    };
+
+    let result = if cli.bench {
+        handle_bench(format, cli.code, cli.no_color)
+    } else {
+        handle_format(format, cli.debug, cli.code, cli.no_color)
     };
 
     match result {
