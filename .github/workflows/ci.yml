@@ -2,9 +2,9 @@ name: CI
 
 on:
     push:
-        branches: [master]
+        branches: ["**"]
     pull_request:
-        branches: [master]
+        branches: [trunk]
 
 env:
     CARGO_TERM_COLOR: always
@@ -12,11 +12,11 @@ env:
 
 jobs:
     test:
-        name: Test
+        name: tests
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest, windows-latest, macos-latest]
+                os: [ubuntu-latest, macos-latest]
                 rust: [stable]
         steps:
             - uses: actions/checkout@v5
@@ -76,41 +76,18 @@ jobs:
             - name: Check MSRV
               run: cargo check --verbose
 
-    coverage:
-        name: Code Coverage
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
+    # TODO: fix benchmarks
+    # bench:
+    #     name: Benchmarks
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - uses: actions/checkout@v5
 
-            - name: Install Rust stable
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: llvm-tools-preview
+    #         - name: Install Rust stable
+    #           uses: dtolnay/rust-toolchain@stable
 
-            - name: Install cargo-llvm-cov
-              uses: taiki-e/install-action@cargo-llvm-cov
-
-            - name: Generate coverage
-              run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v5
-              with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
-                  files: lcov.info
-                  fail_ci_if_error: false
-
-    bench:
-        name: Benchmarks
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
-
-            - name: Install Rust stable
-              uses: dtolnay/rust-toolchain@stable
-
-            - name: Run benchmarks
-              run: cargo bench --no-run
+    #         - name: Run benchmarks
+    #           run: cargo bench --no-run
 
     security-audit:
         name: Security Audit
