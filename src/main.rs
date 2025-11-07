@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use std::env;
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -13,16 +12,14 @@ mod parser;
 mod registry;
 mod style;
 
+const MY_PROMPT_FORMAT: &str =
+    "{username:green} {time:yellow:12h:[:]} {path:white} {git:blue:full:[:]}";
+
 #[derive(Parser)]
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
 #[command(version)]
 struct Cli {
-    format: Option<String>,
-
-    #[arg(short = 'f', long)]
-    format_flag: Option<String>,
-
     #[arg(long)]
     debug: bool,
 
@@ -39,15 +36,10 @@ struct Cli {
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    let format = cli
-        .format
-        .or(cli.format_flag)
-        .unwrap_or_else(|| "{username:green} {path:white} {git:blue}".to_string());
-
     let result = if cli.bench {
-        handle_bench(&format, cli.code, cli.no_color)
+        handle_bench(MY_PROMPT_FORMAT, cli.code, cli.no_color)
     } else {
-        handle_format(&format, cli.debug, cli.code, cli.no_color)
+        handle_format(MY_PROMPT_FORMAT, cli.debug, cli.code, cli.no_color)
     };
 
     match result {
