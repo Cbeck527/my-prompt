@@ -42,7 +42,6 @@ fn main() -> ExitCode {
     let format = cli
         .format
         .or(cli.format_flag)
-        .or_else(|| env::var("PRMT_FORMAT").ok())
         .unwrap_or_else(|| "{username:green} {path:white} {git:blue}".to_string());
 
     let result = if cli.bench {
