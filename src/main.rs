@@ -5,16 +5,12 @@ use std::time::Instant;
 
 mod cache;
 mod error;
-mod executor;
 mod module_trait;
 mod modules;
-mod parser;
-mod registry;
+mod prompt;
 mod style;
 
-const MY_PROMPT_FORMAT: &str = "{fail:red:code:[:]\n}{username:green} {path:white} {git:blue:full,status=red:[:]} {character:white:$} ";
-
-const MY_TRANSIENT_PROMPT_FORMAT: &str = "{time:yellow:12h:[:]} {character:white:$} ";
+// TODO: implement the following modules: direnv
 
 #[derive(Parser)]
 #[command(name = "my-prompt")]
@@ -38,18 +34,20 @@ struct Cli {
 }
 
 fn main() -> ExitCode {
+    prompt::init_thread_pool();
+
     let cli = Cli::parse();
 
-    let format = if cli.final_rendering {
-        MY_TRANSIENT_PROMPT_FORMAT
+    let modules = if cli.final_rendering {
+        prompt::TRANSIENT_FORMAT
     } else {
-        MY_PROMPT_FORMAT
+        prompt::PROMPT_FORMAT
     };
 
     let result = if cli.bench {
-        handle_bench(format, cli.code, cli.no_color)
+        handle_bench(modules, cli.code, cli.no_color)
     } else {
-        handle_format(format, cli.debug, cli.code, cli.no_color)
+        handle_format(modules, cli.debug, cli.code, cli.no_color)
     };
 
     match result {
@@ -65,31 +63,47 @@ fn main() -> ExitCode {
 }
 
 fn handle_format(
-    format: &str,
+    modules: &[prompt::PromptModule],
     debug: bool,
     exit_code: Option<i32>,
     no_color: bool,
 ) -> Result<String> {
+    let no_color = no_color || std::env::var("NO_COLOR").is_ok();
+    let context = module_trait::ModuleContext {
+        exit_code,
+        no_color,
+    };
+
     if debug {
         let start = Instant::now();
-        let output = executor::execute(format, exit_code, no_color)?;
+        let output = prompt::render_prompt(modules, &context)?;
         let elapsed = start.elapsed();
 
-        eprintln!("Format: {format}");
+        eprintln!("Modules: {:?}", modules);
         eprintln!("Execution time: {:.2}ms", elapsed.as_secs_f64() * 1000.0);
 
         Ok(output)
     } else {
-        executor::execute(format, exit_code, no_color).map_err(|e| anyhow::anyhow!(e))
+        prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))
     }
 }
 
-fn handle_bench(format: &str, exit_code: Option<i32>, no_color: bool) -> Result<String> {
+fn handle_bench(
+    modules: &[prompt::PromptModule],
+    exit_code: Option<i32>,
+    no_color: bool,
+) -> Result<String> {
+    let no_color = no_color || std::env::var("NO_COLOR").is_ok();
+    let context = module_trait::ModuleContext {
+        exit_code,
+        no_color,
+    };
+
     let mut times = Vec::new();
 
     for _ in 0..100 {
         let start = Instant::now();
-        let _ = executor::execute(format, exit_code, no_color).map_err(|e| anyhow::anyhow!(e))?;
+        let _ = prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))?;
         times.push(start.elapsed());
     }
 

@@ -17,12 +17,15 @@ impl CharacterModule {
 }
 
 impl Module for CharacterModule {
-    fn render(&self, format: &str, _context: &ModuleContext) -> Result<Option<String>> {
-        let symbol = match format {
-            "" => "$",
-            custom => custom,
-        };
+    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+        let symbol = "$";
 
-        Ok(Some(symbol.to_string()))
+        if context.no_color {
+            Ok(Some(format!("{} ", symbol)))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let style = AnsiStyle::new(Color::White, false);
+            Ok(Some(format!("{}{}{} ", style.start_codes(), symbol, AnsiStyle::RESET)))
+        }
     }
 }

@@ -17,19 +17,21 @@ impl FailModule {
 }
 
 impl Module for FailModule {
-    fn render(&self, format: &str, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
         let exit_code = context.exit_code.unwrap_or(0);
         if exit_code == 0 {
             return Ok(None);
         }
 
-        let symbol = match format {
-            "" | "full" => "❯".to_string(),
-            "code" => format!("exit: {exit_code}"),
-            custom => custom.to_string(),
-        };
+        let text = format!("exit: {}", exit_code);
 
-        Ok(Some(symbol))
+        if context.no_color {
+            Ok(Some(format!("[{}]\n", text)))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let style = AnsiStyle::new(Color::Red, false);
+            Ok(Some(format!("{}[{}]{}\n", style.start_codes(), text, AnsiStyle::RESET)))
+        }
     }
 }
 
@@ -44,8 +46,9 @@ mod tests {
             exit_code: Some(127),
             ..ModuleContext::default()
         };
-        let result = module.render("", &context).unwrap();
-        assert_eq!(result, Some("❯".to_string()));
+        let result = module.render(&context).unwrap();
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("exit: 127"));
     }
 
     #[test]
@@ -55,7 +58,7 @@ mod tests {
             exit_code: Some(0),
             ..ModuleContext::default()
         };
-        let result = module.render("", &context).unwrap();
+        let result = module.render(&context).unwrap();
         assert_eq!(result, None);
     }
 
@@ -66,18 +69,22 @@ mod tests {
             exit_code: Some(42),
             ..ModuleContext::default()
         };
-        let result = module.render("code", &context).unwrap();
-        assert_eq!(result, Some("42".to_string()));
+        let result = module.render(&context).unwrap();
+        assert!(result.is_some());
+        let output = result.unwrap();
+        assert!(output.contains("exit: 42"));
+        assert!(output.contains("["));
+        assert!(output.contains("]"));
     }
 
     #[test]
-    fn test_fail_custom_symbol() {
+    fn test_fail_no_color() {
         let module = FailModule::new();
         let context = ModuleContext {
             exit_code: Some(1),
-            ..ModuleContext::default()
+            no_color: true,
         };
-        let result = module.render("✗", &context).unwrap();
-        assert_eq!(result, Some("✗".to_string()));
+        let result = module.render(&context).unwrap();
+        assert_eq!(result, Some("[exit: 1]\n".to_string()));
     }
 }

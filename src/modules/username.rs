@@ -18,12 +18,19 @@ impl UsernameModule {
 }
 
 impl Module for UsernameModule {
-    fn render(&self, _format: &str, _context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
         let actual_username = username();
         let display_name = match actual_username.as_str() {
             "christopher.becker" => "chris",
             _ => &actual_username,
         };
-        Ok(Some(display_name.to_string()))
+
+        if context.no_color {
+            Ok(Some(format!("{} ", display_name)))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let style = AnsiStyle::new(Color::Green, false);
+            Ok(Some(format!("{}{}{} ", style.start_codes(), display_name, AnsiStyle::RESET)))
+        }
     }
 }

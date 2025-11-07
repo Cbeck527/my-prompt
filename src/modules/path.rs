@@ -2,7 +2,6 @@ use crate::error::{PromptError, Result};
 use crate::module_trait::{Module, ModuleContext};
 use std::env;
 use std::path::Path;
-use unicode_width::UnicodeWidthStr;
 
 pub struct PathModule;
 
@@ -52,58 +51,24 @@ fn normalize_relative_path(current_dir: &Path) -> String {
 }
 
 impl Module for PathModule {
-    fn render(&self, format: &str, _context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
         let Ok(current_dir) = env::current_dir() else {
             return Ok(None);
         };
 
-        match format {
-            "" | "relative" | "r" => Ok(Some(normalize_relative_path(&current_dir))),
-            "absolute" | "a" | "f" => Ok(Some(current_dir.to_string_lossy().to_string())),
-            "short" | "s" => Ok(current_dir
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(std::string::ToString::to_string)
-                .or_else(|| Some(".".to_string()))),
-            format if format.starts_with("truncate:") => {
-                let max_width: usize = format
-                    .strip_prefix("truncate:")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(30);
+        let path = normalize_relative_path(&current_dir);
 
-                let path = normalize_relative_path(&current_dir);
-
-                // Use unicode width for proper truncation
-                let width = UnicodeWidthStr::width(path.as_str());
-                if width <= max_width {
-                    Ok(Some(path))
-                } else {
-                    // Truncate with ellipsis
-                    let ellipsis = "...";
-                    let ellipsis_width = 3;
-                    let target_width = max_width.saturating_sub(ellipsis_width);
-
-                    let mut truncated = String::new();
-                    let mut current_width = 0;
-
-                    for ch in path.chars() {
-                        let ch_width = UnicodeWidthStr::width(ch.to_string().as_str());
-                        if current_width + ch_width > target_width {
-                            break;
-                        }
-                        truncated.push(ch);
-                        current_width += ch_width;
-                    }
-
-                    truncated.push_str(ellipsis);
-                    Ok(Some(truncated))
-                }
-            }
-            _ => Err(PromptError::InvalidFormat {
-                module: "path".to_string(),
-                format: format.to_string(),
-                valid_formats: "relative, r, absolute, a, f, short, s, truncate:N".to_string(),
-            }),
+        if context.no_color {
+            Ok(Some(format!("{} ", path)))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let style = AnsiStyle::new(Color::White, false);
+            Ok(Some(format!(
+                "{}{}{} ",
+                style.start_codes(),
+                path,
+                AnsiStyle::RESET
+            )))
         }
     }
 }
@@ -152,14 +117,23 @@ mod tests {
         let _dir_guard = DirGuard::change_to(&project);
 
         let value = module
-            .render("", &ModuleContext::default())
+            .render(&ModuleContext::default())
             .expect("render")
             .expect("some");
 
+        // Should have trailing space
         assert!(
-            value.starts_with("~/prmt_test_project_"),
-            "Expected path to start with ~/prmt_test_project_, got: {}",
+            value.ends_with(" "),
+            "Expected trailing space, got: {}",
             value
+        );
+
+        // Strip trailing space for path check
+        let path = value.trim_end();
+        assert!(
+            path.starts_with("~/prmt_test_project_"),
+            "Expected path to start with ~/prmt_test_project_, got: {}",
+            path
         );
 
         let _ = fs::remove_dir_all(&project);
@@ -182,19 +156,21 @@ mod tests {
         let _dir_guard = DirGuard::change_to(&similar);
 
         let value = module
-            .render("", &ModuleContext::default())
+            .render(&ModuleContext::default())
             .expect("render")
             .expect("some");
 
+        // Strip trailing space for path check
+        let path = value.trim_end();
         assert!(
-            value.starts_with("~/prmt_test_base_"),
+            path.starts_with("~/prmt_test_base_"),
             "Expected path to start with ~/prmt_test_base_, got: {}",
-            value
+            path
         );
         assert!(
-            value.ends_with("/alpine"),
+            path.ends_with("/alpine"),
             "Expected path to end with /alpine, got: {}",
-            value
+            path
         );
 
         let _ = fs::remove_dir_all(&base);

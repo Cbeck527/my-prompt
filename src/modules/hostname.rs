@@ -18,8 +18,17 @@ impl HostnameModule {
 }
 
 impl Module for HostnameModule {
-    #[allow(unused)]
-    fn render(&self, format: &str, _context: &ModuleContext) -> Result<Option<String>> {
-        Ok(hostname().ok())
+    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+        let Some(hostname) = hostname().ok() else {
+            return Ok(None);
+        };
+
+        if context.no_color {
+            Ok(Some(format!("{} ", hostname)))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let style = AnsiStyle::new(Color::Cyan, false);
+            Ok(Some(format!("{}{}{} ", style.start_codes(), hostname, AnsiStyle::RESET)))
+        }
     }
 }
