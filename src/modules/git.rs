@@ -78,8 +78,7 @@ impl Module for GitModule {
             String::from_utf8(head_ref.name().shorten().to_vec())
                 .unwrap_or_else(|_| "HEAD".to_string())
         } else if let Ok(Some(head_name)) = repo.head_name() {
-            String::from_utf8(head_name.shorten().to_vec())
-                .unwrap_or_else(|_| "HEAD".to_string())
+            String::from_utf8(head_name.shorten().to_vec()).unwrap_or_else(|_| "HEAD".to_string())
         } else if let Ok(head) = repo.head() {
             head.id()
                 .map_or_else(|| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
@@ -130,5 +129,31 @@ impl Module for GitModule {
                 )))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_git_outside_repo() {
+        // Create temp dir that's not a git repo
+        let temp = env::temp_dir();
+        let original = env::current_dir().unwrap();
+
+        env::set_current_dir(&temp).unwrap();
+
+        let module = GitModule::new();
+        let context = ModuleContext::default();
+
+        let result = module.render(&context).unwrap();
+
+        // Restore original directory
+        env::set_current_dir(original).unwrap();
+
+        // Should return None outside a git repo
+        assert_eq!(result, None);
     }
 }

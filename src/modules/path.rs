@@ -18,16 +18,6 @@ impl PathModule {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn normalize_separators(value: String) -> String {
-    value.replace('\\', "/")
-}
-
-#[cfg(not(target_os = "windows"))]
-fn normalize_separators(value: String) -> String {
-    value
-}
-
 fn normalize_relative_path(current_dir: &Path) -> String {
     let current_canon = current_dir
         .canonicalize()
@@ -43,11 +33,11 @@ fn normalize_relative_path(current_dir: &Path) -> String {
             let mut result = String::from("~");
             result.push(std::path::MAIN_SEPARATOR);
             result.push_str(&stripped.to_string_lossy());
-            return normalize_separators(result);
+            return result;
         }
     }
 
-    normalize_separators(current_dir.to_string_lossy().to_string())
+    current_dir.to_string_lossy().to_string()
 }
 
 impl Module for PathModule {
@@ -76,6 +66,20 @@ impl Module for PathModule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_path_renders() {
+        let module = PathModule::new();
+        let context = ModuleContext::default();
+
+        let result = module.render(&context).unwrap();
+        assert!(result.is_some(), "Path module should render something");
+
+        let output = result.unwrap();
+        assert!(!output.is_empty());
+        assert!(output.ends_with(' '), "Should have trailing space");
+    }
+
     use serial_test::serial;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -98,6 +102,22 @@ mod tests {
         }
     }
 
+    struct TempDir {
+        path: std::path::PathBuf,
+    }
+
+    impl TempDir {
+        fn new(path: std::path::PathBuf) -> Self {
+            Self { path }
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
     fn unique_name() -> String {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -111,13 +131,17 @@ mod tests {
     fn relative_path_inside_home_renders_tilde() {
         let module = PathModule::new();
         let home = dirs::home_dir().expect("home dir should exist");
-        let project = home.join(format!("prmt_test_project_{}", unique_name()));
+        let project = home.join(format!("my_prompt_test_project_{}", unique_name()));
         fs::create_dir_all(&project).expect("create project dir");
 
+        let _temp = TempDir::new(project.clone());
         let _dir_guard = DirGuard::change_to(&project);
 
         let value = module
-            .render(&ModuleContext::default())
+            .render(&ModuleContext {
+                exit_code: None,
+                no_color: true,
+            })
             .expect("render")
             .expect("some");
 
@@ -131,12 +155,10 @@ mod tests {
         // Strip trailing space for path check
         let path = value.trim_end();
         assert!(
-            path.starts_with("~/prmt_test_project_"),
-            "Expected path to start with ~/prmt_test_project_, got: {}",
+            path.starts_with("~/my_prompt_test_project_"),
+            "Expected path to start with ~/my_prompt_test_project_, got: {}",
             path
         );
-
-        let _ = fs::remove_dir_all(&project);
     }
 
     #[test]
@@ -146,25 +168,29 @@ mod tests {
         let home = dirs::home_dir().expect("home dir should exist");
 
         let unique = unique_name();
-        let base = home.join(format!("prmt_test_base_{}", unique));
+        let base = home.join(format!("my_prompt_test_base_{}", unique));
         let home_like = base.join("al");
         let similar = base.join("alpine");
 
         fs::create_dir_all(&home_like).expect("create home_like");
         fs::create_dir_all(&similar).expect("create similar");
 
+        let _temp = TempDir::new(base.clone());
         let _dir_guard = DirGuard::change_to(&similar);
 
         let value = module
-            .render(&ModuleContext::default())
+            .render(&ModuleContext {
+                exit_code: None,
+                no_color: true,
+            })
             .expect("render")
             .expect("some");
 
         // Strip trailing space for path check
         let path = value.trim_end();
         assert!(
-            path.starts_with("~/prmt_test_base_"),
-            "Expected path to start with ~/prmt_test_base_, got: {}",
+            path.starts_with("~/my_prompt_test_base_"),
+            "Expected path to start with ~/my_prompt_test_base_, got: {}",
             path
         );
         assert!(
@@ -172,7 +198,5 @@ mod tests {
             "Expected path to end with /alpine, got: {}",
             path
         );
-
-        let _ = fs::remove_dir_all(&base);
     }
 }

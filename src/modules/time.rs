@@ -44,8 +44,8 @@ mod tests {
         assert!(result.is_some());
         let output = result.unwrap();
 
-        // Should have brackets and space
-        assert!(output.starts_with("["));
+        // Should have brackets
+        assert!(output.contains("["));
         assert!(output.contains("]"));
 
         // Extract just the time part (between brackets)

@@ -37,3 +37,20 @@ impl Module for HostnameModule {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hostname_renders() {
+        let module = HostnameModule::new();
+        let context = ModuleContext::default();
+
+        let result = module.render(&context).unwrap();
+        assert!(result.is_some(), "Hostname module should render something");
+
+        let output = result.unwrap();
+        assert!(!output.is_empty());
+    }
+}

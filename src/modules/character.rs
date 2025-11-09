@@ -34,3 +34,20 @@ impl Module for CharacterModule {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_character_renders() {
+        let module = CharacterModule::new();
+        let context = ModuleContext::default();
+
+        let result = module.render(&context).unwrap();
+        assert!(result.is_some());
+
+        let output = result.unwrap();
+        assert!(output.contains('$'));
+    }
+}

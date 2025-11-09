@@ -114,3 +114,20 @@ fn get_direnv_status_slow(direnv_root: &Path) -> Option<DirenvState> {
         Some(DirenvState::Blocked)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_direnv_without_envrc() {
+        let module = DirenvModule::new();
+        let context = ModuleContext::default();
+
+        let result = module.render(&context).unwrap();
+        assert!(
+            result.is_none(),
+            "Direnv module shouldn't render without .envrc"
+        );
+    }
+}
