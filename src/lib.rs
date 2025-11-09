@@ -1,4 +1,3 @@
-pub mod cache;
 pub mod error;
 pub mod module_trait;
 pub mod modules;

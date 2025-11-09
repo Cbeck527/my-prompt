@@ -1,4 +1,3 @@
-use crate::cache::{GIT_CACHE, GitInfo};
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils;
@@ -32,7 +31,6 @@ impl GitModule {
 fn get_git_status_slow(repo_root: &PathBuf) -> GitStatus {
     let mut status = GitStatus::empty();
 
-    // Only run git status if not cached
     if let Ok(output) = std::process::Command::new("git")
         .arg("status")
         .arg("--porcelain=v1")
@@ -70,43 +68,29 @@ impl Module for GitModule {
             return Ok(None);
         };
 
-        // Check cache first
-        let (branch_name, has_changes, has_untracked) =
-            if let Some(cached) = GIT_CACHE.get(repo_root) {
-                (cached.branch, cached.has_changes, cached.has_untracked)
-            } else {
-                // Open repo to get branch and status
-                let Ok(repo) = gix::open(repo_root) else {
-                    return Ok(None);
-                };
+        // Open repo to get branch and status
+        let Ok(repo) = gix::open(repo_root) else {
+            return Ok(None);
+        };
 
-                // Get branch name efficiently
-                let branch = if let Ok(Some(head_ref)) = repo.head_ref() {
-                    String::from_utf8(head_ref.name().shorten().to_vec())
-                        .unwrap_or_else(|_| "HEAD".to_string())
-                } else if let Ok(Some(head_name)) = repo.head_name() {
-                    String::from_utf8(head_name.shorten().to_vec())
-                        .unwrap_or_else(|_| "HEAD".to_string())
-                } else if let Ok(head) = repo.head() {
-                    head.id()
-                        .map_or_else(|| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
-                } else {
-                    "HEAD".to_string()
-                };
+        // Get branch name efficiently
+        let branch_name = if let Ok(Some(head_ref)) = repo.head_ref() {
+            String::from_utf8(head_ref.name().shorten().to_vec())
+                .unwrap_or_else(|_| "HEAD".to_string())
+        } else if let Ok(Some(head_name)) = repo.head_name() {
+            String::from_utf8(head_name.shorten().to_vec())
+                .unwrap_or_else(|_| "HEAD".to_string())
+        } else if let Ok(head) = repo.head() {
+            head.id()
+                .map_or_else(|| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
+        } else {
+            "HEAD".to_string()
+        };
 
-                // Get status
-                let status = get_git_status_slow(&repo_root.to_path_buf());
-
-                // Cache the result
-                let info = GitInfo {
-                    branch: branch.clone(),
-                    has_changes: status.contains(GitStatus::MODIFIED),
-                    has_untracked: status.contains(GitStatus::UNTRACKED),
-                };
-                GIT_CACHE.insert(repo_root.to_path_buf(), info.clone());
-
-                (info.branch, info.has_changes, info.has_untracked)
-            };
+        // Get status
+        let status = get_git_status_slow(&repo_root.to_path_buf());
+        let has_changes = status.contains(GitStatus::MODIFIED);
+        let has_untracked = status.contains(GitStatus::UNTRACKED);
 
         // Build status indicators
         let mut indicators = String::new();

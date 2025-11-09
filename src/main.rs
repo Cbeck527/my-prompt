@@ -3,7 +3,6 @@ use clap::Parser;
 use std::process::ExitCode;
 use std::time::Instant;
 
-mod cache;
 mod error;
 mod module_trait;
 mod modules;
