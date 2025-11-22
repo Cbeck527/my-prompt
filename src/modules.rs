@@ -1,5 +1,6 @@
 pub mod character;
 pub mod direnv;
+pub mod envs;
 pub mod fail;
 pub mod git;
 pub mod hostname;
