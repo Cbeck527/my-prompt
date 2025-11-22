@@ -9,8 +9,6 @@ mod modules;
 mod prompt;
 mod style;
 
-// TODO: implement the following modules: direnv
-
 #[derive(Parser)]
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
