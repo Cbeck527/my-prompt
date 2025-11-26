@@ -11,6 +11,8 @@ mod modules;
 mod prompt;
 mod style;
 
+use module_trait::GitBackend;
+
 #[derive(Parser)]
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
@@ -25,6 +27,9 @@ struct Cli {
 
     #[arg(long)]
     code: Option<i32>,
+
+    #[arg(long, value_enum, default_value = "gix")]
+    git_backend: GitBackend,
 
     #[arg(long)]
     no_color: bool,
@@ -69,9 +74,9 @@ fn main() -> ExitCode {
     };
 
     let result = if cli.bench {
-        handle_bench(modules, cli.code, cli.no_color, claude_session)
+        handle_bench(modules, cli.code, cli.no_color, cli.git_backend, claude_session)
     } else {
-        handle_format(modules, cli.debug, cli.code, cli.no_color, claude_session)
+        handle_format(modules, cli.debug, cli.code, cli.no_color, cli.git_backend, claude_session)
     };
 
     match result {
@@ -107,12 +112,14 @@ fn handle_format(
     debug: bool,
     exit_code: Option<i32>,
     no_color: bool,
+    git_backend: GitBackend,
     claude_session: Option<module_trait::ClaudeSession>,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
+        git_backend,
         claude_session,
     };
 
@@ -134,14 +141,18 @@ fn handle_bench(
     modules: &[prompt::PromptModule],
     exit_code: Option<i32>,
     no_color: bool,
+    git_backend: GitBackend,
     claude_session: Option<module_trait::ClaudeSession>,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
+        git_backend,
         claude_session,
     };
+
+    println!("Using backend: {git_backend:?}");
 
     let mut times = Vec::new();
 

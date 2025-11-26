@@ -1,4 +1,17 @@
 use crate::error::Result;
+use clap::ValueEnum;
+
+/// Backend for git operations (branch name, status).
+#[derive(ValueEnum, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GitBackend {
+    /// Shell out to git binary
+    #[default]
+    Binary,
+    /// Use gix library (pure Rust)
+    Gix,
+    /// Use git2 library (libgit2 bindings)
+    Git2,
+}
 
 /// Session information from Claude Code, passed via stdin JSON.
 #[derive(Debug, Clone)]
@@ -14,6 +27,7 @@ pub struct ModuleContext {
     pub exit_code: Option<i32>,
     pub no_color: bool,
     pub claude_session: Option<ClaudeSession>,
+    pub git_backend: GitBackend,
 }
 
 pub trait Module: Send + Sync {

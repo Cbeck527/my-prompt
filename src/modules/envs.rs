@@ -112,6 +112,7 @@ mod tests {
         let context = ModuleContext {
             exit_code: Some(0),
             no_color: true,
+            ..Default::default()
         };
 
         let result = module.render(&context).unwrap();
@@ -131,6 +132,7 @@ mod tests {
         let context = ModuleContext {
             exit_code: Some(0),
             no_color: true,
+            ..Default::default()
         };
 
         let result = module.render(&context).unwrap();
@@ -153,6 +155,7 @@ mod tests {
         let context = ModuleContext {
             exit_code: Some(0),
             no_color: true,
+            ..Default::default()
         };
 
         let result = module.render(&context).unwrap();
