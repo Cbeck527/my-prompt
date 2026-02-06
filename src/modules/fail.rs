@@ -88,6 +88,7 @@ mod tests {
         let context = ModuleContext {
             exit_code: Some(1),
             no_color: true,
+            ..ModuleContext::default()
         };
         let result = module.render(&context).unwrap();
         assert_eq!(result, Some("[exit: 1]\n".to_string()));

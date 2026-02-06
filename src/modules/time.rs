@@ -63,6 +63,7 @@ mod tests {
         let context = ModuleContext {
             exit_code: None,
             no_color: true,
+            ..ModuleContext::default()
         };
 
         let result = module.render(&context).unwrap();

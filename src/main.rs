@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use serde::Deserialize;
+use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -29,6 +31,27 @@ struct Cli {
 
     #[arg(long, alias = "transient")]
     final_rendering: bool,
+
+    #[arg(long)]
+    claude: bool,
+}
+
+#[derive(Deserialize)]
+struct ClaudeInput {
+    model: ClaudeModel,
+    context_window: ClaudeContextWindow,
+}
+
+#[derive(Deserialize)]
+struct ClaudeModel {
+    display_name: String,
+}
+
+#[derive(Deserialize)]
+struct ClaudeContextWindow {
+    total_input_tokens: u64,
+    context_window_size: u64,
+    used_percentage: f64,
 }
 
 fn main() -> ExitCode {
@@ -36,16 +59,19 @@ fn main() -> ExitCode {
 
     let cli = Cli::parse();
 
-    let modules = if cli.final_rendering {
-        prompt::TRANSIENT_FORMAT
+    let (modules, claude_session) = if cli.claude {
+        let session = parse_claude_stdin();
+        (prompt::CLAUDE_FORMAT, session)
+    } else if cli.final_rendering {
+        (prompt::TRANSIENT_FORMAT, None)
     } else {
-        prompt::PROMPT_FORMAT
+        (prompt::PROMPT_FORMAT, None)
     };
 
     let result = if cli.bench {
-        handle_bench(modules, cli.code, cli.no_color)
+        handle_bench(modules, cli.code, cli.no_color, claude_session)
     } else {
-        handle_format(modules, cli.debug, cli.code, cli.no_color)
+        handle_format(modules, cli.debug, cli.code, cli.no_color, claude_session)
     };
 
     match result {
@@ -60,16 +86,34 @@ fn main() -> ExitCode {
     }
 }
 
+fn parse_claude_stdin() -> Option<module_trait::ClaudeSession> {
+    let mut input = String::new();
+    if io::stdin().read_to_string(&mut input).is_err() {
+        return None;
+    }
+
+    let parsed: ClaudeInput = serde_json::from_str(&input).ok()?;
+
+    Some(module_trait::ClaudeSession {
+        model_name: parsed.model.display_name,
+        context_used: parsed.context_window.total_input_tokens,
+        context_total: parsed.context_window.context_window_size,
+        percentage: parsed.context_window.used_percentage.round() as u8,
+    })
+}
+
 fn handle_format(
     modules: &[prompt::PromptModule],
     debug: bool,
     exit_code: Option<i32>,
     no_color: bool,
+    claude_session: Option<module_trait::ClaudeSession>,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
+        claude_session,
     };
 
     if debug {
@@ -90,11 +134,13 @@ fn handle_bench(
     modules: &[prompt::PromptModule],
     exit_code: Option<i32>,
     no_color: bool,
+    claude_session: Option<module_trait::ClaudeSession>,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
+        claude_session,
     };
 
     let mut times = Vec::new();

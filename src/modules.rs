@@ -1,4 +1,5 @@
 pub mod character;
+pub mod claude;
 pub mod direnv;
 pub mod envs;
 pub mod fail;

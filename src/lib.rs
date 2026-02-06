@@ -10,4 +10,4 @@ pub use module_trait::{Module, ModuleContext};
 pub use style::AnsiStyle;
 
 // Export for integration tests
-pub use prompt::{PROMPT_FORMAT, PromptModule, TRANSIENT_FORMAT, render_prompt};
+pub use prompt::{CLAUDE_FORMAT, PROMPT_FORMAT, PromptModule, TRANSIENT_FORMAT, render_prompt};

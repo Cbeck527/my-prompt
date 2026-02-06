@@ -1,9 +1,19 @@
 use crate::error::Result;
 
+/// Session information from Claude Code, passed via stdin JSON.
+#[derive(Debug, Clone)]
+pub struct ClaudeSession {
+    pub model_name: String,
+    pub context_used: u64,
+    pub context_total: u64,
+    pub percentage: u8,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ModuleContext {
     pub exit_code: Option<i32>,
     pub no_color: bool,
+    pub claude_session: Option<ClaudeSession>,
 }
 
 pub trait Module: Send + Sync {

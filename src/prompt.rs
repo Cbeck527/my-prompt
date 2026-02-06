@@ -1,11 +1,12 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
-use crate::modules::{character, direnv, envs, fail, git, hostname, path, time, username};
+use crate::modules::{character, claude, direnv, envs, fail, git, hostname, path, time, username};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum PromptModule {
     Character,
+    Claude,
     Direnv,
     Fail,
     Envs,
@@ -21,6 +22,7 @@ impl PromptModule {
     fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
         match self {
             Self::Character => character::CharacterModule::new().render(context),
+            Self::Claude => claude::ClaudeModule::new().render(context),
             Self::Direnv => direnv::DirenvModule::new().render(context),
             Self::Fail => fail::FailModule::new().render(context),
             Self::Envs => envs::EnvsModule::new().render(context),
@@ -44,6 +46,15 @@ pub const PROMPT_FORMAT: &[PromptModule] = &[
 ];
 
 pub const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
+
+pub const CLAUDE_FORMAT: &[PromptModule] = &[
+    PromptModule::Fail,
+    PromptModule::Path,
+    PromptModule::Envs,
+    PromptModule::Direnv,
+    PromptModule::Git,
+    PromptModule::Claude,
+];
 
 /// Renders the given modules in parallel and combines their output.
 ///

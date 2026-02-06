@@ -141,6 +141,7 @@ mod tests {
             .render(&ModuleContext {
                 exit_code: None,
                 no_color: true,
+                ..ModuleContext::default()
             })
             .expect("render")
             .expect("some");
@@ -182,6 +183,7 @@ mod tests {
             .render(&ModuleContext {
                 exit_code: None,
                 no_color: true,
+                ..ModuleContext::default()
             })
             .expect("render")
             .expect("some");

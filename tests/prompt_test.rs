@@ -6,6 +6,7 @@ fn test_render_prompt_full() {
     let context = ModuleContext {
         exit_code: Some(0),
         no_color: true,
+        ..ModuleContext::default()
     };
 
     let result = render_prompt(PROMPT_FORMAT, &context);
@@ -20,6 +21,7 @@ fn test_render_transient_prompt() {
     let context = ModuleContext {
         exit_code: Some(0),
         no_color: true,
+        ..ModuleContext::default()
     };
 
     let result = render_prompt(TRANSIENT_FORMAT, &context);
@@ -36,6 +38,7 @@ fn test_prompt_modules_enum() {
     // Test that all enum variants can render
     let modules = [
         PromptModule::Character,
+        PromptModule::Claude,
         PromptModule::Direnv,
         PromptModule::Fail,
         PromptModule::Git,
