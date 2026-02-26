@@ -114,10 +114,11 @@ fn get_git_info_gix() -> Result<Option<GitInfo>> {
                 entry:
                     gix::dir::Entry {
                         status: gix::dir::entry::Status::Untracked,
+                        disk_kind,
                         ..
                     },
                 ..
-            } => {
+            } if !matches!(disk_kind, Some(gix::dir::entry::Kind::Directory)) => {
                 status |= GitStatus::UNTRACKED;
             }
             _ => {}
