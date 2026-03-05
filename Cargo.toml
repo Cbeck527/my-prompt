@@ -39,6 +39,12 @@ regex = "1"
 serial_test = "3"
 tempfile = "3"
 
+[lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+
+[lints.rust]
+warnings = "deny"
+
 [profile.release]
 lto = "fat"
 codegen-units = 1

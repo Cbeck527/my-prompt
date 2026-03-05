@@ -42,7 +42,7 @@ jobs:
         if: matrix.rust == 'stable'
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings -D clippy::pedantic
+        run: cargo clippy
         if: matrix.rust == 'stable'
 
       - name: Build
