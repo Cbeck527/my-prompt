@@ -25,7 +25,9 @@ pub fn format_tokens(n: u64) -> String {
     if n >= 10_000 {
         format!("{}k", n / 1000)
     } else if n >= 1_000 {
-        format!("{:.1}k", n as f64 / 1000.0)
+        #[allow(clippy::cast_precision_loss)] // token counts are well within f64 precision
+        let val = n as f64 / 1000.0;
+        format!("{val:.1}k")
     } else {
         n.to_string()
     }

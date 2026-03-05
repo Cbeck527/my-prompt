@@ -1,4 +1,3 @@
-use crate::error::Result;
 use crate::module_trait::{GitBackend, Module, ModuleContext};
 use bitflags::bitflags;
 use git2::RepositoryOpenFlags;
@@ -31,18 +30,16 @@ impl GitModule {
     }
 }
 
-fn get_git_info_binary() -> Result<Option<GitInfo>> {
+fn get_git_info_binary() -> Option<GitInfo> {
     // Single process spawn: --branch gives "## branch...tracking" as the first line,
     // remaining lines are porcelain v1 status entries.
     let output = std::process::Command::new("git")
         .args(["status", "--porcelain=v1", "--branch", "--untracked-files=normal"])
-        .output();
+        .output()
+        .ok()?;
 
-    let Ok(output) = output else {
-        return Ok(None);
-    };
     if !output.status.success() {
-        return Ok(None);
+        return None;
     }
 
     let text = String::from_utf8_lossy(&output.stdout);
@@ -55,11 +52,7 @@ fn get_git_info_binary() -> Result<Option<GitInfo>> {
         .map(|rest| {
             // Strip tracking info after "..."
             rest.split("...").next().unwrap_or(rest).to_string()
-        });
-
-    let Some(branch) = branch else {
-        return Ok(None);
-    };
+        })?;
 
     let mut status = GitStatus::empty();
     for line in lines {
@@ -82,13 +75,11 @@ fn get_git_info_binary() -> Result<Option<GitInfo>> {
         }
     }
 
-    Ok(Some(GitInfo { branch, status }))
+    Some(GitInfo { branch, status })
 }
 
-fn get_git_info_gix() -> Result<Option<GitInfo>> {
-    let Ok(repo) = gix::discover(".") else {
-        return Ok(None);
-    };
+fn get_git_info_gix() -> Option<GitInfo> {
+    let repo = gix::discover(".").ok()?;
 
     // Get branch name
     let branch = if let Ok(head) = repo.head_ref() {
@@ -98,8 +89,7 @@ fn get_git_info_gix() -> Result<Option<GitInfo>> {
         } else {
             // Detached HEAD - show abbreviated commit hash
             repo.head_id()
-                .map(|id| id.shorten_or_id().to_string())
-                .unwrap_or_else(|_| "HEAD".to_string())
+                .map_or_else(|_| "HEAD".to_string(), |id| id.shorten_or_id().to_string())
         }
     } else {
         "HEAD".to_string()
@@ -114,9 +104,9 @@ fn get_git_info_gix() -> Result<Option<GitInfo>> {
             .into_index_worktree_iter(Vec::new())
         {
             Ok(iter) => iter,
-            Err(_) => return Ok(Some(GitInfo { branch, status })),
+            Err(_) => return Some(GitInfo { branch, status }),
         },
-        Err(_) => return Ok(Some(GitInfo { branch, status })),
+        Err(_) => return Some(GitInfo { branch, status }),
     };
 
     for item in status_iter.filter_map(std::result::Result::ok) {
@@ -143,22 +133,19 @@ fn get_git_info_gix() -> Result<Option<GitInfo>> {
         }
     }
 
-    Ok(Some(GitInfo { branch, status }))
+    Some(GitInfo { branch, status })
 }
 
-fn get_git_info_git2() -> Result<Option<GitInfo>> {
-    let Ok(repo) = git2::Repository::open_ext(
+fn get_git_info_git2() -> Option<GitInfo> {
+    let repo = git2::Repository::open_ext(
         ".",
         RepositoryOpenFlags::CROSS_FS,
         &[] as &[&std::ffi::OsStr],
-    ) else {
-        return Ok(None);
-    };
+    )
+    .ok()?;
 
     // Get branch name
-    let Ok(head) = repo.head() else {
-        return Ok(None);
-    };
+    let head = repo.head().ok()?;
     let branch = head.shorthand().unwrap_or("HEAD").to_string();
 
     // Get status with optimized options
@@ -169,10 +156,10 @@ fn get_git_info_git2() -> Result<Option<GitInfo>> {
         .include_unmodified(false); // Skip unchanged files
 
     let Ok(statuses) = repo.statuses(Some(&mut opts)) else {
-        return Ok(Some(GitInfo {
+        return Some(GitInfo {
             branch,
             status: GitStatus::empty(),
-        }));
+        });
     };
 
     let mut status = GitStatus::empty();
@@ -196,27 +183,20 @@ fn get_git_info_git2() -> Result<Option<GitInfo>> {
         }
     }
 
-    Ok(Some(GitInfo { branch, status }))
+    Some(GitInfo { branch, status })
 }
 
 impl Module for GitModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> crate::error::Result<Option<String>> {
         use crate::style::{AnsiStyle, Color};
 
         // Get git info using configured backend
-        let info = match context.git_backend {
-            GitBackend::Binary => match get_git_info_binary()? {
-                Some(info) => info,
-                None => return Ok(None),
-            },
-            GitBackend::Gix => match get_git_info_gix()? {
-                Some(info) => info,
-                None => return Ok(None),
-            },
-            GitBackend::Git2 => match get_git_info_git2()? {
-                Some(info) => info,
-                None => return Ok(None),
-            },
+        let Some(info) = (match context.git_backend {
+            GitBackend::Binary => get_git_info_binary(),
+            GitBackend::Gix => get_git_info_gix(),
+            GitBackend::Git2 => get_git_info_git2(),
+        }) else {
+            return Ok(None);
         };
 
         let has_changes = info.status.contains(GitStatus::MODIFIED);

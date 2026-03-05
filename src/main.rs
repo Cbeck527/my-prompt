@@ -103,7 +103,8 @@ fn parse_claude_stdin() -> Option<module_trait::ClaudeSession> {
         model_name: parsed.model.display_name,
         context_used: parsed.context_window.total_input_tokens,
         context_total: parsed.context_window.context_window_size,
-        percentage: parsed.context_window.used_percentage.round() as u8,
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        percentage: parsed.context_window.used_percentage.round().clamp(0.0, 100.0) as u8,
     })
 }
 
@@ -119,8 +120,8 @@ fn handle_format(
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
-        git_backend,
         claude_session,
+        git_backend,
     };
 
     if debug {
@@ -148,8 +149,8 @@ fn handle_bench(
     let context = module_trait::ModuleContext {
         exit_code,
         no_color,
-        git_backend,
         claude_session,
+        git_backend,
     };
 
     println!("Using backend: {git_backend:?}");
