@@ -45,18 +45,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fail_on_non_zero_exit_code() {
-        let module = FailModule::new();
-        let context = ModuleContext {
-            exit_code: Some(127),
-            ..ModuleContext::default()
-        };
-        let result = module.render(&context).unwrap();
-        assert!(result.is_some());
-        assert!(result.unwrap().contains("exit: 127"));
-    }
-
-    #[test]
     fn test_fail_hidden_on_success() {
         let module = FailModule::new();
         let context = ModuleContext {

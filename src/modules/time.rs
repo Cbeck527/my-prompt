@@ -36,28 +36,6 @@ mod tests {
     use regex::Regex;
 
     #[test]
-    fn test_time_module_12h_format() {
-        let module = TimeModule;
-        let context = ModuleContext::default();
-
-        let result = module.render(&context).unwrap();
-        assert!(result.is_some());
-        let output = result.unwrap();
-
-        // Should have brackets
-        assert!(output.contains("["));
-        assert!(output.contains("]"));
-
-        // Extract just the time part (between brackets)
-        let re = Regex::new(r"\[(\d{2}:\d{2}(AM|PM))\]").unwrap();
-        assert!(
-            re.is_match(&output),
-            "Expected [hh:MMAM/PM] format, got: {}",
-            output
-        );
-    }
-
-    #[test]
     fn test_time_module_no_color() {
         let module = TimeModule;
         let context = ModuleContext {

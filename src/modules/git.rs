@@ -30,22 +30,12 @@ impl GitModule {
     }
 }
 
-fn get_git_info_binary() -> Option<GitInfo> {
-    // Single process spawn: --branch gives "## branch...tracking" as the first line,
-    // remaining lines are porcelain v1 status entries.
-    let output = std::process::Command::new("git")
-        .args(["status", "--porcelain=v1", "--branch", "--untracked-files=normal"])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout);
+/// Parse the output of `git status --porcelain=v1 --branch`.
+/// First line: "## branch" or "## branch...upstream [ahead N, behind M]"
+/// Remaining lines: XY status entries.
+fn parse_git_status_output(text: &str) -> Option<GitInfo> {
     let mut lines = text.lines();
 
-    // First line: "## branch" or "## branch...upstream [ahead N, behind M]"
     let branch = lines
         .next()
         .and_then(|line| line.strip_prefix("## "))
@@ -76,6 +66,19 @@ fn get_git_info_binary() -> Option<GitInfo> {
     }
 
     Some(GitInfo { branch, status })
+}
+
+fn get_git_info_binary() -> Option<GitInfo> {
+    let output = std::process::Command::new("git")
+        .args(["status", "--porcelain=v1", "--branch", "--untracked-files=normal"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    parse_git_status_output(&String::from_utf8_lossy(&output.stdout))
 }
 
 fn get_git_info_gix() -> Option<GitInfo> {
@@ -266,5 +269,88 @@ mod tests {
 
         // Should return None outside a git repo
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_clean_repo() {
+        let output = "## main\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert_eq!(info.branch, "main");
+        assert!(info.status.is_empty());
+    }
+
+    #[test]
+    fn test_parse_branch_with_tracking() {
+        let output = "## trunk...origin/trunk [ahead 3]\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert_eq!(info.branch, "trunk");
+        assert!(info.status.is_empty());
+    }
+
+    #[test]
+    fn test_parse_unstaged_modification() {
+        let output = "## main\n M src/main.rs\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert_eq!(info.branch, "main");
+        assert!(info.status.contains(GitStatus::MODIFIED));
+        assert!(!info.status.contains(GitStatus::UNTRACKED));
+    }
+
+    #[test]
+    fn test_parse_staged_modification() {
+        let output = "## main\nM  src/main.rs\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert_eq!(info.branch, "main");
+        assert!(info.status.contains(GitStatus::MODIFIED));
+        assert!(!info.status.contains(GitStatus::UNTRACKED));
+    }
+
+    #[test]
+    fn test_parse_staged_and_unstaged() {
+        let output = "## main\nMM src/main.rs\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert!(info.status.contains(GitStatus::MODIFIED));
+    }
+
+    #[test]
+    fn test_parse_staged_new_file() {
+        let output = "## main\nA  src/new.rs\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert!(info.status.contains(GitStatus::MODIFIED));
+    }
+
+    #[test]
+    fn test_parse_staged_delete() {
+        let output = "## main\nD  src/old.rs\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert!(info.status.contains(GitStatus::MODIFIED));
+    }
+
+    #[test]
+    fn test_parse_untracked_files() {
+        let output = "## main\n?? newfile.txt\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert!(!info.status.contains(GitStatus::MODIFIED));
+        assert!(info.status.contains(GitStatus::UNTRACKED));
+    }
+
+    #[test]
+    fn test_parse_modified_and_untracked() {
+        let output = "## feature\n M src/lib.rs\n?? TODO.md\n";
+        let info = parse_git_status_output(output).unwrap();
+        assert_eq!(info.branch, "feature");
+        assert!(info.status.contains(GitStatus::MODIFIED));
+        assert!(info.status.contains(GitStatus::UNTRACKED));
+    }
+
+    #[test]
+    fn test_parse_no_branch_header() {
+        let output = "not a valid header\n";
+        assert!(parse_git_status_output(output).is_none());
+    }
+
+    #[test]
+    fn test_parse_empty_output() {
+        assert!(parse_git_status_output("").is_none());
     }
 }
