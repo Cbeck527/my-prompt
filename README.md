@@ -33,7 +33,9 @@ Example:
 Token counts are formatted for readability:
 - `845` (under 1k)
 - `5.0k` (1k-10k)
-- `12k`, `200k` (10k+)
+- `12k`, `200k` (10k-1M)
+- `1.0M`, `1.5M` (1M-10M)
+- `10M` (10M+)
 
 ## Git Backends
 

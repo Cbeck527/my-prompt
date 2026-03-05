@@ -18,11 +18,19 @@ impl ClaudeModule {
 
 /// Formats a token count into a human-readable string.
 /// - 0-999: as-is (e.g., "845")
-/// - 1000-9999: one decimal (e.g., "1.2k")
-/// - 10000+: no decimal (e.g., "12k", "200k")
+/// - 1,000-9,999: one decimal (e.g., "1.2k")
+/// - 10,000-999,999: no decimal (e.g., "12k", "200k")
+/// - 1,000,000-9,999,999: one decimal (e.g., "1.0M", "1.5M")
+/// - 10,000,000+: no decimal (e.g., "10M")
 #[must_use]
 pub fn format_tokens(n: u64) -> String {
-    if n >= 10_000 {
+    if n >= 10_000_000 {
+        format!("{}M", n / 1_000_000)
+    } else if n >= 1_000_000 {
+        #[allow(clippy::cast_precision_loss)]
+        let val = n as f64 / 1_000_000.0;
+        format!("{val:.1}M")
+    } else if n >= 10_000 {
         format!("{}k", n / 1000)
     } else if n >= 1_000 {
         #[allow(clippy::cast_precision_loss)] // token counts are well within f64 precision
@@ -88,6 +96,17 @@ mod tests {
         assert_eq!(format_tokens(12845), "12k");
         assert_eq!(format_tokens(100000), "100k");
         assert_eq!(format_tokens(200000), "200k");
+        assert_eq!(format_tokens(999_999), "999k");
+    }
+
+    #[test]
+    fn test_format_tokens_millions() {
+        assert_eq!(format_tokens(1_000_000), "1.0M");
+        assert_eq!(format_tokens(1_500_000), "1.5M");
+        assert_eq!(format_tokens(2_000_000), "2.0M");
+        assert_eq!(format_tokens(9_999_999), "10.0M");
+        assert_eq!(format_tokens(10_000_000), "10M");
+        assert_eq!(format_tokens(50_000_000), "50M");
     }
 
     #[test]
