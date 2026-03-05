@@ -48,7 +48,7 @@ impl Module for EnvsModule {
         let text = present_vars.join(" ");
 
         if context.no_color {
-            Ok(Some(format!("[{text}]")))
+            Ok(Some(format!("[{text}] ")))
         } else {
             use crate::style::{AnsiStyle, Color};
 
@@ -118,7 +118,7 @@ mod tests {
         let result = module.render(&context).unwrap();
         assert_eq!(
             result,
-            Some("[+nix]".to_string()),
+            Some("[+nix] ".to_string()),
             "Envs module should render in nix shell"
         );
     }
@@ -138,7 +138,7 @@ mod tests {
         let result = module.render(&context).unwrap();
         assert_eq!(
             result,
-            Some("[+virtualenv]".to_string()),
+            Some("[+virtualenv] ".to_string()),
             "Envs module should render in virtualenv"
         );
     }
@@ -161,7 +161,7 @@ mod tests {
         let result = module.render(&context).unwrap();
         assert_eq!(
             result,
-            Some("[+nix +virtualenv]".to_string()),
+            Some("[+nix +virtualenv] ".to_string()),
             "Envs module should render all special vars"
         );
     }

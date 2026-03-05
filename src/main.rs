@@ -28,7 +28,7 @@ struct Cli {
     #[arg(long)]
     code: Option<i32>,
 
-    #[arg(long, value_enum, default_value = "gix")]
+    #[arg(long, value_enum, default_value = "binary")]
     git_backend: GitBackend,
 
     #[arg(long)]

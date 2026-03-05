@@ -35,6 +35,30 @@ Token counts are formatted for readability:
 - `5.0k` (1k-10k)
 - `12k`, `200k` (10k+)
 
+## Git Backends
+
+By default, `my-prompt` shells out to the `git` binary for branch and status information. Two experimental library-based backends are also available via `--git-backend`:
+
+| Backend | Flag | Description |
+|---------|------|-------------|
+| `binary` | `--git-backend binary` | Default. Shells out to `git`. Requires `git` on `$PATH`. |
+| `gix` | `--git-backend gix` | Pure Rust via [gitoxide](https://github.com/GitoxideLabs/gitoxide). No external dependencies. |
+| `git2` | `--git-backend git2` | [libgit2](https://libgit2.org/) bindings (vendored). No external dependencies. |
+
+## Building
+
+```bash
+cargo build --release
+```
+
+For maximum performance on your local machine, enable native CPU optimizations:
+
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
+This tells LLVM to use the full instruction set of your specific CPU (e.g., Apple Silicon features on M-series Macs). Do **not** use this for cross-compiled or distributed builds -- the resulting binary will only run on CPUs with the same (or newer) feature set.
+
 ## License
 
 License [The MIT License](./LICENSE)

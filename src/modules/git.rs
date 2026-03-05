@@ -61,8 +61,13 @@ fn get_git_status_binary() -> Result<Option<GitStatus>> {
             if line.starts_with("??") {
                 status |= GitStatus::UNTRACKED;
             } else if !line.is_empty() {
+                // Porcelain v1 format: XY path
+                // X = index (staged) status, Y = worktree status
                 let chars: Vec<char> = line.chars().take(2).collect();
-                if chars.len() >= 2 && chars[1] != ' ' && chars[1] != '?' {
+                if chars.len() >= 2
+                    && chars[0] != '?'
+                    && (chars[0] != ' ' || chars[1] != ' ')
+                {
                     status |= GitStatus::MODIFIED;
                 }
             }
@@ -149,7 +154,7 @@ fn get_git_info_git2() -> Result<Option<GitInfo>> {
 
     // Get status with optimized options
     let mut opts = git2::StatusOptions::new();
-    opts.show(git2::StatusShow::Workdir) // Only working dir vs index (skip HEAD comparison)
+    opts.show(git2::StatusShow::IndexAndWorkdir)
         .exclude_submodules(true) // Skip submodules
         .include_untracked(true) // We need untracked files
         .include_unmodified(false); // Skip unchanged files
@@ -164,7 +169,14 @@ fn get_git_info_git2() -> Result<Option<GitInfo>> {
     let mut status = GitStatus::empty();
     for entry in statuses.iter() {
         let s = entry.status();
-        if s.is_wt_modified() || s.is_wt_typechange() {
+        if s.is_wt_modified()
+            || s.is_wt_typechange()
+            || s.is_index_modified()
+            || s.is_index_new()
+            || s.is_index_deleted()
+            || s.is_index_renamed()
+            || s.is_index_typechange()
+        {
             status |= GitStatus::MODIFIED;
         }
         if s.is_wt_new() {

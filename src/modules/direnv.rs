@@ -44,7 +44,7 @@ impl Module for DirenvModule {
         };
 
         if context.no_color {
-            Ok(Some(format!("[{text}]")))
+            Ok(Some(format!("[{text}] ")))
         } else {
             use crate::style::{AnsiStyle, Color};
             let cyan = AnsiStyle::new(Color::Cyan, false);
