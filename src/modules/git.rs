@@ -31,49 +31,58 @@ impl GitModule {
     }
 }
 
-fn get_git_branch_binary() -> Result<Option<String>> {
+fn get_git_info_binary() -> Result<Option<GitInfo>> {
+    // Single process spawn: --branch gives "## branch...tracking" as the first line,
+    // remaining lines are porcelain v1 status entries.
     let output = std::process::Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .args(["status", "--porcelain=v1", "--branch", "--untracked-files=normal"])
         .output();
 
-    match output {
-        Ok(o) if o.status.success() => {
-            let branch = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            Ok(Some(branch))
-        }
-        _ => Ok(None),
+    let Ok(output) = output else {
+        return Ok(None);
+    };
+    if !output.status.success() {
+        return Ok(None);
     }
-}
 
-fn get_git_status_binary() -> Result<Option<GitStatus>> {
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut lines = text.lines();
+
+    // First line: "## branch" or "## branch...upstream [ahead N, behind M]"
+    let branch = lines
+        .next()
+        .and_then(|line| line.strip_prefix("## "))
+        .map(|rest| {
+            // Strip tracking info after "..."
+            rest.split("...").next().unwrap_or(rest).to_string()
+        });
+
+    let Some(branch) = branch else {
+        return Ok(None);
+    };
+
     let mut status = GitStatus::empty();
-
-    if let Ok(output) = std::process::Command::new("git")
-        .arg("status")
-        .arg("--porcelain=v1")
-        .arg("--untracked-files=normal")
-        .output()
-        && output.status.success()
-    {
-        let status_text = String::from_utf8_lossy(&output.stdout);
-
-        for line in status_text.lines() {
-            if line.starts_with("??") {
-                status |= GitStatus::UNTRACKED;
-            } else if !line.is_empty() {
-                // Porcelain v1 format: XY path
-                // X = index (staged) status, Y = worktree status
-                let chars: Vec<char> = line.chars().take(2).collect();
-                if chars.len() >= 2
-                    && chars[0] != '?'
-                    && (chars[0] != ' ' || chars[1] != ' ')
-                {
-                    status |= GitStatus::MODIFIED;
-                }
+    for line in lines {
+        if line.starts_with("??") {
+            status |= GitStatus::UNTRACKED;
+        } else if !line.is_empty() {
+            // Porcelain v1 format: XY path
+            // X = index (staged) status, Y = worktree status
+            let chars: Vec<char> = line.chars().take(2).collect();
+            if chars.len() >= 2
+                && chars[0] != '?'
+                && (chars[0] != ' ' || chars[1] != ' ')
+            {
+                status |= GitStatus::MODIFIED;
             }
         }
+
+        if status.contains(GitStatus::MODIFIED | GitStatus::UNTRACKED) {
+            break;
+        }
     }
-    Ok(Some(status))
+
+    Ok(Some(GitInfo { branch, status }))
 }
 
 fn get_git_info_gix() -> Result<Option<GitInfo>> {
@@ -196,14 +205,10 @@ impl Module for GitModule {
 
         // Get git info using configured backend
         let info = match context.git_backend {
-            GitBackend::Binary => {
-                // Binary backend requires two separate calls
-                let Some(branch) = get_git_branch_binary()? else {
-                    return Ok(None);
-                };
-                let status = get_git_status_binary()?.unwrap_or(GitStatus::empty());
-                GitInfo { branch, status }
-            }
+            GitBackend::Binary => match get_git_info_binary()? {
+                Some(info) => info,
+                None => return Ok(None),
+            },
             GitBackend::Gix => match get_git_info_gix()? {
                 Some(info) => info,
                 None => return Ok(None),
