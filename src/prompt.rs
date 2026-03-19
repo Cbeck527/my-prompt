@@ -48,7 +48,6 @@ pub const PROMPT_FORMAT: &[PromptModule] = &[
 pub const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
 
 pub const CLAUDE_FORMAT: &[PromptModule] = &[
-    PromptModule::Fail,
     PromptModule::Path,
     PromptModule::Envs,
     PromptModule::Direnv,

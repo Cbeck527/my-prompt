@@ -54,9 +54,16 @@ struct ClaudeModel {
 
 #[derive(Deserialize)]
 struct ClaudeContextWindow {
-    total_input_tokens: u64,
     context_window_size: u64,
-    used_percentage: f64,
+    used_percentage: Option<f64>,
+    current_usage: Option<ClaudeContextWindowCurrentUsage>,
+}
+
+#[derive(Deserialize)]
+struct ClaudeContextWindowCurrentUsage {
+    input_tokens: u64,
+    cache_creation_input_tokens: u64,
+    cache_read_input_tokens: u64,
 }
 
 fn main() -> ExitCode {
@@ -74,9 +81,22 @@ fn main() -> ExitCode {
     };
 
     let result = if cli.bench {
-        handle_bench(modules, cli.code, cli.no_color, cli.git_backend, claude_session)
+        handle_bench(
+            modules,
+            cli.code,
+            cli.no_color,
+            cli.git_backend,
+            claude_session,
+        )
     } else {
-        handle_format(modules, cli.debug, cli.code, cli.no_color, cli.git_backend, claude_session)
+        handle_format(
+            modules,
+            cli.debug,
+            cli.code,
+            cli.no_color,
+            cli.git_backend,
+            claude_session,
+        )
     };
 
     match result {
@@ -96,15 +116,34 @@ fn parse_claude_stdin() -> Option<module_trait::ClaudeSession> {
     if io::stdin().read_to_string(&mut input).is_err() {
         return None;
     }
+    parse_claude_json(&input)
+}
 
-    let parsed: ClaudeInput = serde_json::from_str(&input).ok()?;
+fn parse_claude_json(input: &str) -> Option<module_trait::ClaudeSession> {
+    let parsed: ClaudeInput = serde_json::from_str(input).ok()?;
+
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let percentage = parsed
+        .context_window
+        .used_percentage
+        .map_or(0, |p| p.round().clamp(0.0, 100.0) as u8);
+
+    // Context used = input_tokens + cache_creation + cache_read (no output_tokens).
+    // current_usage is null before the first API call.
+    // ref: https://code.claude.com/docs/en/statusline#context-window-fields
+    let context_used = parsed
+        .context_window
+        .current_usage
+        .as_ref()
+        .map_or(0, |u| {
+            u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens
+        });
 
     Some(module_trait::ClaudeSession {
         model_name: parsed.model.display_name,
-        context_used: parsed.context_window.total_input_tokens,
+        context_used,
         context_total: parsed.context_window.context_window_size,
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        percentage: parsed.context_window.used_percentage.round().clamp(0.0, 100.0) as u8,
+        percentage,
     })
 }
 
@@ -176,4 +215,256 @@ fn handle_bench(
         max.as_secs_f64() * 1000.0,
         p99.as_secs_f64() * 1000.0
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn full_json() -> String {
+        serde_json::json!({
+            "cwd": "/some/dir",
+            "session_id": "abc123",
+            "model": {
+                "id": "claude-opus-4-6",
+                "display_name": "Opus"
+            },
+            "context_window": {
+                "total_input_tokens": 15234,
+                "total_output_tokens": 4521,
+                "context_window_size": 200000,
+                "used_percentage": 8.0,
+                "remaining_percentage": 92.0,
+                "current_usage": {
+                    "input_tokens": 8500,
+                    "output_tokens": 1200,
+                    "cache_creation_input_tokens": 5000,
+                    "cache_read_input_tokens": 2000
+                }
+            },
+            "cost": {
+                "total_cost_usd": 0.01234,
+                "total_duration_ms": 45000,
+                "total_api_duration_ms": 2300
+            },
+            "version": "1.0.80"
+        })
+        .to_string()
+    }
+
+    fn minimal_json() -> String {
+        serde_json::json!({
+            "model": {
+                "display_name": "Sonnet"
+            },
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": 0.3,
+                "current_usage": {
+                    "input_tokens": 300,
+                    "cache_creation_input_tokens": 100,
+                    "cache_read_input_tokens": 100
+                }
+            }
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn test_parse_full_json() {
+        let session = parse_claude_json(&full_json()).unwrap();
+        assert_eq!(session.model_name, "Opus");
+        assert_eq!(session.context_used, 15500);
+        assert_eq!(session.context_total, 200000);
+        assert_eq!(session.percentage, 8);
+    }
+
+    #[test]
+    fn test_parse_minimal_json() {
+        let session = parse_claude_json(&minimal_json()).unwrap();
+        assert_eq!(session.model_name, "Sonnet");
+        assert_eq!(session.context_used, 500); // 300 + 100 + 100
+        assert_eq!(session.context_total, 200000);
+        assert_eq!(session.percentage, 0);
+    }
+
+    #[test]
+    fn test_parse_null_percentage() {
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": null,
+                "current_usage": null
+            }
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        assert_eq!(session.percentage, 0);
+        assert_eq!(session.context_used, 0);
+    }
+
+    #[test]
+    fn test_parse_missing_percentage_and_usage() {
+        // Both absent entirely (early session) -- defaults to 0
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 200000
+            }
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        assert_eq!(session.percentage, 0);
+        assert_eq!(session.context_used, 0);
+    }
+
+    #[test]
+    fn test_parse_null_current_usage() {
+        // current_usage is null before the first API call
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": 0.0,
+                "current_usage": null
+            }
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        assert_eq!(session.context_used, 0);
+    }
+
+    #[test]
+    fn test_parse_percentage_rounding() {
+        let make_json = |pct: f64| {
+            serde_json::json!({
+                "model": { "display_name": "Opus" },
+                "context_window": {
+                    "context_window_size": 200000,
+                    "used_percentage": pct,
+                    "current_usage": {
+                        "input_tokens": 1000,
+                        "cache_creation_input_tokens": 0,
+                        "cache_read_input_tokens": 0
+                    }
+                }
+            })
+            .to_string()
+        };
+
+        assert_eq!(parse_claude_json(&make_json(8.4)).unwrap().percentage, 8);
+        assert_eq!(parse_claude_json(&make_json(8.5)).unwrap().percentage, 9);
+        assert_eq!(parse_claude_json(&make_json(99.7)).unwrap().percentage, 100);
+        assert_eq!(parse_claude_json(&make_json(0.0)).unwrap().percentage, 0);
+    }
+
+    #[test]
+    fn test_parse_unknown_fields_ignored() {
+        // Forward-compat: unknown fields should be silently ignored
+        let json = serde_json::json!({
+            "model": {
+                "id": "claude-opus-4-6",
+                "display_name": "Opus",
+                "some_new_field": true
+            },
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": 3.0,
+                "current_usage": {
+                    "input_tokens": 3000,
+                    "cache_creation_input_tokens": 1000,
+                    "cache_read_input_tokens": 1000
+                },
+                "some_future_field": "hello"
+            },
+            "vim": { "mode": "NORMAL" },
+            "agent": { "name": "test-agent" },
+            "worktree": { "name": "feat", "path": "/tmp/wt" },
+            "exceeds_200k_tokens": false
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        assert_eq!(session.model_name, "Opus");
+        assert_eq!(session.context_used, 5000); // 3000 + 1000 + 1000
+    }
+
+    #[test]
+    fn test_parse_empty_string() {
+        assert!(parse_claude_json("").is_none());
+    }
+
+    #[test]
+    fn test_parse_invalid_json() {
+        assert!(parse_claude_json("{not json}").is_none());
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        // Missing model entirely
+        let json = serde_json::json!({
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": 1.0
+            }
+        })
+        .to_string();
+        assert!(parse_claude_json(&json).is_none());
+
+        // Missing context_window entirely
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" }
+        })
+        .to_string();
+        assert!(parse_claude_json(&json).is_none());
+    }
+
+    #[test]
+    fn test_parse_large_context_window() {
+        // 1M context window
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 1_000_000,
+                "used_percentage": 50.0,
+                "current_usage": {
+                    "input_tokens": 400_000,
+                    "cache_creation_input_tokens": 50_000,
+                    "cache_read_input_tokens": 50_000
+                }
+            }
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        assert_eq!(session.context_total, 1_000_000);
+        assert_eq!(session.context_used, 500_000);
+        assert_eq!(session.percentage, 50);
+    }
+
+    #[test]
+    fn test_parse_context_used_sums_input_fields() {
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 200000,
+                "used_percentage": 10.0,
+                "current_usage": {
+                    "input_tokens": 10000,
+                    "output_tokens": 5000,
+                    "cache_creation_input_tokens": 7000,
+                    "cache_read_input_tokens": 3000
+                }
+            }
+        })
+        .to_string();
+
+        let session = parse_claude_json(&json).unwrap();
+        // output_tokens should NOT be included
+        assert_eq!(session.context_used, 20000); // 10000 + 7000 + 3000
+    }
 }
