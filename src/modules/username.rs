@@ -19,7 +19,7 @@ impl UsernameModule {
 
 impl Module for UsernameModule {
     fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
-        let actual_username = username();
+        let actual_username = username().unwrap_or(String::from("unknown"));
         let display_name = match actual_username.as_str() {
             "christopher.becker" => "chris",
             _ => &actual_username,

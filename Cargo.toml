@@ -1,6 +1,6 @@
 [package]
 name = "my-prompt"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 authors = ["Chris Becker <chris@becker.am>"]
 description = "My ultra-fast shell prompt based on `prmt` by Ivan Zakharchanka"
@@ -21,20 +21,20 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }
-gix = { version = "0.73", default-features = false, features = ["max-performance-safe", "status", "revision"] }
+gix = { version = "0.80", default-features = false, features = ["max-performance-safe", "status", "revision"] }
 rayon = "1"
 dirs = "6"
 thiserror = "2"
 anyhow = "1"
 bitflags = "2"
 chrono = "0.4"
-whoami = "1.6.1"
+whoami = "2.1"
 serde_json = "1.0.145"
 serde = { version = "1.0.228", features = ["derive"] }
 git2 = { version = "0.20.2", features = ["vendored-libgit2", "vendored-openssl"] }
 
 [dev-dependencies]
-criterion = { version = "0.7", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 regex = "1"
 serial_test = "3"
 tempfile = "3"

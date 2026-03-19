@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
-use whoami::fallible::hostname;
+use whoami::hostname;
 
 pub struct HostnameModule;
 
