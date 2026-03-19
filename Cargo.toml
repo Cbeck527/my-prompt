@@ -1,6 +1,6 @@
 [package]
 name = "my-prompt"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 authors = ["Chris Becker <chris@becker.am>"]
 description = "My ultra-fast shell prompt based on `prmt` by Ivan Zakharchanka"
