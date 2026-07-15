@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-release:
@@ -29,14 +29,14 @@ jobs:
             asset_name: my-prompt-macos-arm64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Verify Apple Silicon runner
         if: matrix.target == 'aarch64-apple-darwin'
         run: test "$(uname -m)" = arm64
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           targets: ${{ matrix.target }}
 
@@ -45,40 +45,137 @@ jobs:
         run: sudo apt-get install -y musl-tools
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Verify release binary
+        run: |
+          binary="target/${{ matrix.target }}/release/${{ matrix.artifact_name }}"
+          test -f "$binary"
+          test -s "$binary"
+          test -x "$binary"
+          "$binary" --version
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.asset_name }}
           path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          if-no-files-found: error
 
   create-release:
     name: Create Release
     needs: build-and-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
+          merge-multiple: false
 
       - name: Prepare release assets
+        shell: bash
         run: |
-          mkdir -p release-assets
-          for dir in artifacts/*/; do
-            if [ -d "$dir" ]; then
-              asset_name=$(basename "$dir")
-              # Find the binary file
-              binary=$(find "$dir" -type f -name 'my-prompt' | head -1)
-              if [ -n "$binary" ]; then
-                cp "$binary" "release-assets/${asset_name}"
-              fi
+          set -euo pipefail
+
+          expected_assets=(
+            "my-prompt-linux-amd64"
+            "my-prompt-linux-musl-amd64"
+            "my-prompt-macos-arm64"
+          )
+
+          if [ ! -d artifacts ]; then
+            echo "release artifacts are missing" >&2
+            exit 1
+          fi
+
+          if [ -e artifacts/my-prompt-macos-amd64 ]; then
+            echo "macOS amd64 release artifacts are unsupported" >&2
+            exit 1
+          fi
+
+          is_expected_asset() {
+            case "$1" in
+              my-prompt-linux-amd64 | my-prompt-linux-musl-amd64 | my-prompt-macos-arm64)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          shopt -s dotglob nullglob
+          artifact_paths=(artifacts/*)
+          if [ "${#artifact_paths[@]}" -ne "${#expected_assets[@]}" ]; then
+            echo "expected exactly three release artifacts" >&2
+            exit 1
+          fi
+
+          for artifact_path in "${artifact_paths[@]}"; do
+            if [ ! -d "$artifact_path" ] || [ -L "$artifact_path" ]; then
+              echo "invalid release artifact path: $artifact_path" >&2
+              exit 1
+            fi
+
+            asset_name=$(basename "$artifact_path")
+            if ! is_expected_asset "$asset_name"; then
+              echo "unexpected release artifact: $asset_name" >&2
+              exit 1
             fi
           done
-          ls -la release-assets/
+
+          mkdir -p release-assets
+
+          for asset_name in "${expected_assets[@]}"; do
+            artifact_path="artifacts/$asset_name"
+            binary="$artifact_path/my-prompt"
+
+            if [ ! -d "$artifact_path" ] || [ -L "$artifact_path" ]; then
+              echo "missing release artifact: $asset_name" >&2
+              exit 1
+            fi
+
+            entry_count=$(find "$artifact_path" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+            if [ "$entry_count" -ne 1 ] || [ ! -f "$binary" ] || [ -L "$binary" ]; then
+              echo "release artifact must contain only its my-prompt binary: $asset_name" >&2
+              exit 1
+            fi
+
+            if [ ! -s "$binary" ]; then
+              echo "release binary is empty: $asset_name" >&2
+              exit 1
+            fi
+
+            # Artifact ZIP extraction does not preserve executable permissions.
+            chmod +x "$binary"
+            if [ ! -x "$binary" ]; then
+              echo "release binary is not executable: $asset_name" >&2
+              exit 1
+            fi
+
+            if [ "$asset_name" != "my-prompt-macos-arm64" ]; then
+              "$binary" --version
+            fi
+
+            cp "$binary" "release-assets/$asset_name"
+          done
+
+          (
+            cd release-assets
+            shasum -a 256 "${expected_assets[@]}" > SHA256SUMS
+            shasum -a 256 -c SHA256SUMS
+          )
+
+          release_asset_count=$(find release-assets -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
+          if [ "$release_asset_count" -ne 4 ]; then
+            echo "expected three release binaries and SHA256SUMS" >&2
+            exit 1
+          fi
 
       - name: Create Release
         env:
@@ -88,4 +185,7 @@ jobs:
           gh release create "$tag_name" \
             --title "Release $tag_name" \
             --generate-notes \
-            release-assets/*
+            release-assets/my-prompt-linux-amd64 \
+            release-assets/my-prompt-linux-musl-amd64 \
+            release-assets/my-prompt-macos-arm64 \
+            release-assets/SHA256SUMS
