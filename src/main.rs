@@ -59,6 +59,7 @@ struct ClaudeContextWindow {
     current_usage: Option<ClaudeContextWindowCurrentUsage>,
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Deserialize)]
 struct ClaudeContextWindowCurrentUsage {
     input_tokens: u64,
