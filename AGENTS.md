@@ -16,7 +16,7 @@ next to their implementation behind `#[cfg(test)]`. The Fish setup helper is
 - `cargo build --release` — build the optimized, stripped release binary.
 - `cargo test --verbose` — run unit and integration tests.
 - `cargo fmt -- --check` — verify standard Rust formatting without changing files.
-- `cargo clippy` — run the repository's denied pedantic lints.
+- `cargo clippy --all-targets --all-features --locked -- -D warnings` — run the repository's denied pedantic lints across every target and feature.
 - `cargo audit` — check dependencies for known security advisories (used in CI).
 - `cargo run -- --debug` — render the prompt and print module/timing diagnostics.
 
