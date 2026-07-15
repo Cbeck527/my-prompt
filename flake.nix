@@ -23,6 +23,7 @@
               rustfmt
               clippy
               cargo-audit
+              cargo-deny
               fish
               git
               perl

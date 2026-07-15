@@ -67,6 +67,18 @@ jobs:
       - name: Build release
         run: cargo build --release --locked --verbose
 
+  dependency-policy:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41
+
+      - name: Check dependency policy
+        run: nix develop -c cargo deny --locked check
+
   msrv:
     name: Check MSRV
     runs-on: ubuntu-latest

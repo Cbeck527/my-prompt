@@ -9,8 +9,16 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
+    "Unicode-3.0",
     "Unicode-DFS-2016",
     "CC0-1.0",
+    "Zlib",
+]
+
+# MPL-2.0 is accepted only for these locked transitive dependencies.
+exceptions = [
+    { allow = ["MPL-2.0"], crate = "option-ext@0.2.0" },
+    { allow = ["MPL-2.0"], crate = "uluru@3.1.0" },
 ]
 
 [bans]
@@ -23,12 +31,13 @@ skip = []
 # The advisories section is used to configure how the advisory database is used
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-# Lint level for security vulnerabilities
-vulnerability = "deny"
-# Lint level for unmaintained crates
-unmaintained = "warn"
-# Lint level for crates with security notices
-notice = "warn"
+# Direct dependencies must be maintained. Transitive maintenance notices are
+# addressed through the dependencies that select them.
+unmaintained = "workspace"
+ignore = [
+    { id = "RUSTSEC-2026-0183", reason = "The Git2 backend does not call Remote::list(); remove after CB-166 upgrades git2 to >=0.21.0." },
+    { id = "RUSTSEC-2026-0184", reason = "The Git2 backend does not call Blame::blame_buffer(); remove after CB-166 upgrades git2 to >=0.21.0." },
+]
 
 [sources]
 # Lint level for what to happen when a crate from a crate registry that is not in the allow list is encountered
