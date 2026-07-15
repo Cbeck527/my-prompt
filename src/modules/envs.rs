@@ -66,33 +66,62 @@ impl Module for EnvsModule {
 mod tests {
     use super::*;
     use serial_test::serial;
+    use std::ffi::OsString;
 
-    /// RAII guard that removes an environment variable when dropped,
-    /// ensuring cleanup even if test panics
+    /// RAII guard that restores an environment variable when dropped.
     struct EnvVarGuard {
         key: &'static str,
+        previous_value: Option<OsString>,
     }
 
     impl Drop for EnvVarGuard {
         fn drop(&mut self) {
             unsafe {
-                env::remove_var(self.key);
+                if let Some(value) = self.previous_value.take() {
+                    env::set_var(self.key, value);
+                } else {
+                    env::remove_var(self.key);
+                }
             }
         }
     }
 
     impl EnvVarGuard {
-        fn new(key: &'static str, value: &str) -> Self {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous_value = env::var_os(key);
             unsafe {
                 env::set_var(key, value);
             }
-            Self { key }
+            Self {
+                key,
+                previous_value,
+            }
         }
+
+        fn unset(key: &'static str) -> Self {
+            let previous_value = env::var_os(key);
+            unsafe {
+                env::remove_var(key);
+            }
+            Self {
+                key,
+                previous_value,
+            }
+        }
+    }
+
+    fn clear_special_env_vars() -> Vec<EnvVarGuard> {
+        SPECIAL_ENV_VARS
+            .iter()
+            .map(|var| EnvVarGuard::unset(var.name))
+            .collect()
     }
 
     #[test]
     #[serial]
     fn test_without_vars() {
+        let _guards = clear_special_env_vars();
+
         let module = EnvsModule::new();
         let context = ModuleContext::default();
 
@@ -106,7 +135,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_with_nix() {
-        let _guard = EnvVarGuard::new("IN_NIX_SHELL", "test");
+        let _clear_guards = clear_special_env_vars();
+        let _guard = EnvVarGuard::set("IN_NIX_SHELL", "test");
 
         let module = EnvsModule::new();
         let context = ModuleContext {
@@ -126,7 +156,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_with_virtualenv() {
-        let _guard = EnvVarGuard::new("VIRTUAL_ENV", "test");
+        let _clear_guards = clear_special_env_vars();
+        let _guard = EnvVarGuard::set("VIRTUAL_ENV", "test");
 
         let module = EnvsModule::new();
         let context = ModuleContext {
@@ -146,9 +177,10 @@ mod tests {
     #[test]
     #[serial]
     fn test_with_all_special_vars() {
+        let _clear_guards = clear_special_env_vars();
         let _guards: Vec<_> = SPECIAL_ENV_VARS
             .iter()
-            .map(|var| EnvVarGuard::new(var.name, "test"))
+            .map(|var| EnvVarGuard::set(var.name, "test"))
             .collect();
 
         let module = EnvsModule::new();

@@ -52,10 +52,7 @@ fn parse_git_status_output(text: &str) -> Option<GitInfo> {
             // Porcelain v1 format: XY path
             // X = index (staged) status, Y = worktree status
             let chars: Vec<char> = line.chars().take(2).collect();
-            if chars.len() >= 2
-                && chars[0] != '?'
-                && (chars[0] != ' ' || chars[1] != ' ')
-            {
+            if chars.len() >= 2 && chars[0] != '?' && (chars[0] != ' ' || chars[1] != ' ') {
                 status |= GitStatus::MODIFIED;
             }
         }
@@ -70,7 +67,12 @@ fn parse_git_status_output(text: &str) -> Option<GitInfo> {
 
 fn get_git_info_binary() -> Option<GitInfo> {
     let output = std::process::Command::new("git")
-        .args(["status", "--porcelain=v1", "--branch", "--untracked-files=normal"])
+        .args([
+            "status",
+            "--porcelain=v1",
+            "--branch",
+            "--untracked-files=normal",
+        ])
         .output()
         .ok()?;
 

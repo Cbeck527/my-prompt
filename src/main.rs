@@ -131,13 +131,9 @@ fn parse_claude_json(input: &str) -> Option<module_trait::ClaudeSession> {
     // Context used = input_tokens + cache_creation + cache_read (no output_tokens).
     // current_usage is null before the first API call.
     // ref: https://code.claude.com/docs/en/statusline#context-window-fields
-    let context_used = parsed
-        .context_window
-        .current_usage
-        .as_ref()
-        .map_or(0, |u| {
-            u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens
-        });
+    let context_used = parsed.context_window.current_usage.as_ref().map_or(0, |u| {
+        u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens
+    });
 
     Some(module_trait::ClaudeSession {
         model_name: parsed.model.display_name,
