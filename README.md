@@ -47,6 +47,21 @@ By default, `my-prompt` shells out to the `git` binary for branch and status inf
 | `gix` | `--git-backend gix` | Pure Rust via [gitoxide](https://github.com/GitoxideLabs/gitoxide). No external dependencies. |
 | `git2` | `--git-backend git2` | [libgit2](https://libgit2.org/) bindings (vendored). No external dependencies. |
 
+## Development with Nix
+
+Enter the development shell to get Rust, Cargo, formatting and linting tools,
+Cargo audit, Git, and the native build tools required by vendored `git2`:
+
+```bash
+nix develop
+```
+
+Run existing commands without entering an interactive shell:
+
+```bash
+nix develop -c cargo test --verbose
+```
+
 ## Building
 
 ```bash
