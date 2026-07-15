@@ -37,6 +37,19 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install Fish
+        run: |
+          if command -v fish >/dev/null; then
+            exit 0
+          fi
+
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install --yes fish
+          else
+            brew install fish
+          fi
+
       - name: Check formatting
         run: cargo fmt -- --check
         if: matrix.rust == 'stable'

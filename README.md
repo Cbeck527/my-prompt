@@ -6,7 +6,7 @@ I'm stripping it down and adding features to try and replicate the prompt that I
 
 ## Claude Code Statusline
 
-`my-prompt` can be used as a statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). The `--claude` flag produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
+`my-prompt` can be used as a statusline for [Claude Code](https://code.claude.com/docs/en/statusline). The `--claude` flag produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
 
 ### Setup
 
@@ -14,9 +14,16 @@ Add the following to your Claude Code settings file (`~/.claude/settings.json`):
 
 ```json
 {
-  "statusline": "/path/to/my-prompt --claude"
+  "statusLine": {
+    "type": "command",
+    "command": "/absolute/path/to/my-prompt --claude"
+  }
 }
 ```
+
+Claude Code runs the configured command in a shell and sends JSON on standard input.
+Replace `/absolute/path/to/my-prompt` with the absolute path to the installed
+executable.
 
 ### Output
 
@@ -36,6 +43,19 @@ Token counts are formatted for readability:
 - `12k`, `200k` (10k-1M)
 - `1.0M`, `1.5M` (1M-10M)
 - `10M` (10M+)
+
+## Fish shell prompt
+
+The shipped Fish helper defines `fish_prompt`. It requires `my-prompt` to be
+available on your `PATH`. Add the following to `~/.config/fish/config.fish`,
+replacing the example path with the location of this repository:
+
+```fish
+source /absolute/path/to/my-prompt/etc/my-prompt.fish
+```
+
+For example, after installing the binary with `cargo install --path .`, ensure
+Cargo's bin directory is on `PATH` before starting Fish.
 
 ## Git Backends
 

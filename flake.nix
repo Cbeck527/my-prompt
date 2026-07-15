@@ -23,6 +23,7 @@
               rustfmt
               clippy
               cargo-audit
+              fish
               git
               perl
               gnumake
