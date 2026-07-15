@@ -80,11 +80,14 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41
 
+      - name: Check declared Nix systems
+        run: nix flake check --no-build --all-systems
+
       - name: Check dependency policy
         run: nix develop -c cargo deny --locked check
 
-  msrv:
-    name: Check MSRV
+  current-toolchain:
+    name: Check current Rust toolchain
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -94,7 +97,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Check MSRV
+      - name: Check current Rust toolchain
         run: cargo check --verbose
 
   # TODO: fix benchmarks
