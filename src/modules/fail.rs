@@ -66,8 +66,8 @@ mod tests {
         assert!(result.is_some());
         let output = result.unwrap();
         assert!(output.contains("exit: 42"));
-        assert!(output.contains("["));
-        assert!(output.contains("]"));
+        assert!(output.contains('['));
+        assert!(output.contains(']'));
     }
 
     #[test]

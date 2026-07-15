@@ -148,17 +148,15 @@ mod tests {
 
         // Should have trailing space
         assert!(
-            value.ends_with(" "),
-            "Expected trailing space, got: {}",
-            value
+            value.ends_with(' '),
+            "Expected trailing space, got: {value}",
         );
 
         // Strip trailing space for path check
         let path = value.trim_end();
         assert!(
             path.starts_with("~/my_prompt_test_project_"),
-            "Expected path to start with ~/my_prompt_test_project_, got: {}",
-            path
+            "Expected path to start with ~/my_prompt_test_project_, got: {path}",
         );
     }
 
@@ -169,7 +167,7 @@ mod tests {
         let home = dirs::home_dir().expect("home dir should exist");
 
         let unique = unique_name();
-        let base = home.join(format!("my_prompt_test_base_{}", unique));
+        let base = home.join(format!("my_prompt_test_base_{unique}"));
         let home_like = base.join("al");
         let similar = base.join("alpine");
 
@@ -192,13 +190,11 @@ mod tests {
         let path = value.trim_end();
         assert!(
             path.starts_with("~/my_prompt_test_base_"),
-            "Expected path to start with ~/my_prompt_test_base_, got: {}",
-            path
+            "Expected path to start with ~/my_prompt_test_base_, got: {path}",
         );
         assert!(
             path.ends_with("/alpine"),
-            "Expected path to end with /alpine, got: {}",
-            path
+            "Expected path to end with /alpine, got: {path}",
         );
     }
 }

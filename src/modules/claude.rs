@@ -94,8 +94,8 @@ mod tests {
     fn test_format_tokens_large() {
         assert_eq!(format_tokens(10000), "10k");
         assert_eq!(format_tokens(12845), "12k");
-        assert_eq!(format_tokens(100000), "100k");
-        assert_eq!(format_tokens(200000), "200k");
+        assert_eq!(format_tokens(100_000), "100k");
+        assert_eq!(format_tokens(200_000), "200k");
         assert_eq!(format_tokens(999_999), "999k");
     }
 
@@ -126,7 +126,7 @@ mod tests {
             claude_session: Some(ClaudeSession {
                 model_name: "Opus".to_string(),
                 context_used: 12845,
-                context_total: 200000,
+                context_total: 200_000,
                 percentage: 6,
             }),
             ..ModuleContext::default()
@@ -144,7 +144,7 @@ mod tests {
             claude_session: Some(ClaudeSession {
                 model_name: "Sonnet".to_string(),
                 context_used: 5000,
-                context_total: 200000,
+                context_total: 200_000,
                 percentage: 3,
             }),
             ..ModuleContext::default()

@@ -229,7 +229,7 @@ mod tests {
             "context_window": {
                 "total_input_tokens": 15234,
                 "total_output_tokens": 4521,
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 8.0,
                 "remaining_percentage": 92.0,
                 "current_usage": {
@@ -255,7 +255,7 @@ mod tests {
                 "display_name": "Sonnet"
             },
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 0.3,
                 "current_usage": {
                     "input_tokens": 300,
@@ -272,7 +272,7 @@ mod tests {
         let session = parse_claude_json(&full_json()).unwrap();
         assert_eq!(session.model_name, "Opus");
         assert_eq!(session.context_used, 15500);
-        assert_eq!(session.context_total, 200000);
+        assert_eq!(session.context_total, 200_000);
         assert_eq!(session.percentage, 8);
     }
 
@@ -281,7 +281,7 @@ mod tests {
         let session = parse_claude_json(&minimal_json()).unwrap();
         assert_eq!(session.model_name, "Sonnet");
         assert_eq!(session.context_used, 500); // 300 + 100 + 100
-        assert_eq!(session.context_total, 200000);
+        assert_eq!(session.context_total, 200_000);
         assert_eq!(session.percentage, 0);
     }
 
@@ -290,7 +290,7 @@ mod tests {
         let json = serde_json::json!({
             "model": { "display_name": "Opus" },
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": null,
                 "current_usage": null
             }
@@ -308,7 +308,7 @@ mod tests {
         let json = serde_json::json!({
             "model": { "display_name": "Opus" },
             "context_window": {
-                "context_window_size": 200000
+                "context_window_size": 200_000
             }
         })
         .to_string();
@@ -324,7 +324,7 @@ mod tests {
         let json = serde_json::json!({
             "model": { "display_name": "Opus" },
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 0.0,
                 "current_usage": null
             }
@@ -341,7 +341,7 @@ mod tests {
             serde_json::json!({
                 "model": { "display_name": "Opus" },
                 "context_window": {
-                    "context_window_size": 200000,
+                    "context_window_size": 200_000,
                     "used_percentage": pct,
                     "current_usage": {
                         "input_tokens": 1000,
@@ -369,7 +369,7 @@ mod tests {
                 "some_new_field": true
             },
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 3.0,
                 "current_usage": {
                     "input_tokens": 3000,
@@ -405,7 +405,7 @@ mod tests {
         // Missing model entirely
         let json = serde_json::json!({
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 1.0
             }
         })
@@ -448,7 +448,7 @@ mod tests {
         let json = serde_json::json!({
             "model": { "display_name": "Opus" },
             "context_window": {
-                "context_window_size": 200000,
+                "context_window_size": 200_000,
                 "used_percentage": 10.0,
                 "current_usage": {
                     "input_tokens": 10000,

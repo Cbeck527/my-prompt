@@ -52,8 +52,7 @@ mod tests {
         let re = Regex::new(r"^\[\d{2}:\d{2}(AM|PM)\] $").unwrap();
         assert!(
             re.is_match(&output),
-            "Expected plain [hh:MMAM/PM] format, got: {}",
-            output
+            "Expected plain [hh:MMAM/PM] format, got: {output}",
         );
     }
 
@@ -71,9 +70,8 @@ mod tests {
         if let Some(caps) = re.captures(&output) {
             let hour = caps[1].parse::<u32>().unwrap();
             assert!(
-                hour >= 1 && hour <= 12,
-                "12h format hour should be 1-12, got: {}",
-                hour
+                (1..=12).contains(&hour),
+                "12h format hour should be 1-12, got: {hour}",
             );
         }
     }
