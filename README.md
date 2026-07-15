@@ -96,6 +96,11 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 This tells LLVM to use the full instruction set of your specific CPU (e.g., Apple Silicon features on M-series Macs). Do **not** use this for cross-compiled or distributed builds -- the resulting binary will only run on CPUs with the same (or newer) feature set.
 
+## Platform support
+
+Prebuilt releases are available for Linux x86_64 (GNU and musl) and macOS on
+Apple Silicon (arm64). Intel macOS is unsupported.
+
 ## License
 
 License [The MIT License](./LICENSE)

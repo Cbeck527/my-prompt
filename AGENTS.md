@@ -51,7 +51,8 @@ formatting or CLI behavior changes.
 
 ## Release and Security Notes
 
-Tagged `v*` pushes trigger multi-platform release builds in GitHub Actions.
+Tagged `v*` pushes trigger release builds for Linux x86_64 (GNU and musl) and
+macOS on Apple Silicon (arm64). Intel macOS is unsupported.
 Do not commit `target/`, generated binaries, credentials, or local environment
 files. Run `cargo audit` when changing dependencies and update `Cargo.lock`
 with dependency changes.
