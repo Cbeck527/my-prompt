@@ -80,121 +80,24 @@ mod tests {
         assert!(output.ends_with(' '), "Should have trailing space");
     }
 
-    use serial_test::serial;
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    #[test]
+    fn path_inside_home_uses_tilde_with_native_separator() {
+        let home = dirs::home_dir().expect("home dir should exist");
+        let temp_dir = tempfile::tempdir_in(&home).expect("create temp dir in home");
+        let name = temp_dir.path().file_name().expect("temp dir name");
+        let expected = Path::new("~").join(name).to_string_lossy().into_owned();
 
-    struct DirGuard {
-        original: std::path::PathBuf,
-    }
-
-    impl DirGuard {
-        fn change_to(path: &Path) -> Self {
-            let original = env::current_dir().expect("current dir");
-            env::set_current_dir(path).expect("change current dir");
-            Self { original }
-        }
-    }
-
-    impl Drop for DirGuard {
-        fn drop(&mut self) {
-            let _ = env::set_current_dir(&self.original);
-        }
-    }
-
-    struct TempDir {
-        path: std::path::PathBuf,
-    }
-
-    impl TempDir {
-        fn new(path: std::path::PathBuf) -> Self {
-            Self { path }
-        }
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    fn unique_name() -> String {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time")
-            .as_nanos()
-            .to_string()
+        assert_eq!(normalize_relative_path(temp_dir.path()), expected);
     }
 
     #[test]
-    #[serial]
-    fn relative_path_inside_home_renders_tilde() {
-        let module = PathModule::new();
+    fn path_with_a_home_prefix_is_not_rendered_as_home() {
         let home = dirs::home_dir().expect("home dir should exist");
-        let project = home.join(format!("my_prompt_test_project_{}", unique_name()));
-        fs::create_dir_all(&project).expect("create project dir");
+        let parent = home.parent().expect("home parent");
+        let home_name = home.file_name().expect("home name").to_string_lossy();
+        let sibling = parent.join(format!("{home_name}-similar"));
+        let expected = sibling.to_string_lossy().into_owned();
 
-        let _temp = TempDir::new(project.clone());
-        let _dir_guard = DirGuard::change_to(&project);
-
-        let value = module
-            .render(&ModuleContext {
-                exit_code: None,
-                no_color: true,
-                ..ModuleContext::default()
-            })
-            .expect("render")
-            .expect("some");
-
-        // Should have trailing space
-        assert!(
-            value.ends_with(' '),
-            "Expected trailing space, got: {value}",
-        );
-
-        // Strip trailing space for path check
-        let path = value.trim_end();
-        assert!(
-            path.starts_with("~/my_prompt_test_project_"),
-            "Expected path to start with ~/my_prompt_test_project_, got: {path}",
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn relative_path_with_shared_prefix_is_not_tilde() {
-        let module = PathModule::new();
-        let home = dirs::home_dir().expect("home dir should exist");
-
-        let unique = unique_name();
-        let base = home.join(format!("my_prompt_test_base_{unique}"));
-        let home_like = base.join("al");
-        let similar = base.join("alpine");
-
-        fs::create_dir_all(&home_like).expect("create home_like");
-        fs::create_dir_all(&similar).expect("create similar");
-
-        let _temp = TempDir::new(base.clone());
-        let _dir_guard = DirGuard::change_to(&similar);
-
-        let value = module
-            .render(&ModuleContext {
-                exit_code: None,
-                no_color: true,
-                ..ModuleContext::default()
-            })
-            .expect("render")
-            .expect("some");
-
-        // Strip trailing space for path check
-        let path = value.trim_end();
-        assert!(
-            path.starts_with("~/my_prompt_test_base_"),
-            "Expected path to start with ~/my_prompt_test_base_, got: {path}",
-        );
-        assert!(
-            path.ends_with("/alpine"),
-            "Expected path to end with /alpine, got: {path}",
-        );
+        assert_eq!(normalize_relative_path(&sibling), expected);
     }
 }

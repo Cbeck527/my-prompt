@@ -1,6 +1,7 @@
 use crate::module_trait::{GitBackend, Module, ModuleContext};
 use bitflags::bitflags;
 use git2::RepositoryOpenFlags;
+use std::path::Path;
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -65,7 +66,7 @@ fn parse_git_status_output(text: &str) -> Option<GitInfo> {
     Some(GitInfo { branch, status })
 }
 
-fn get_git_info_binary() -> Option<GitInfo> {
+fn get_git_info_binary(current_dir: &Path) -> Option<GitInfo> {
     let output = std::process::Command::new("git")
         .args([
             "status",
@@ -73,6 +74,7 @@ fn get_git_info_binary() -> Option<GitInfo> {
             "--branch",
             "--untracked-files=normal",
         ])
+        .current_dir(current_dir)
         .output()
         .ok()?;
 
@@ -83,8 +85,8 @@ fn get_git_info_binary() -> Option<GitInfo> {
     parse_git_status_output(&String::from_utf8_lossy(&output.stdout))
 }
 
-fn get_git_info_gix() -> Option<GitInfo> {
-    let repo = gix::discover(".").ok()?;
+fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
+    let repo = gix::discover(current_dir).ok()?;
 
     // Get branch name
     let branch = if let Ok(head) = repo.head_ref() {
@@ -141,9 +143,9 @@ fn get_git_info_gix() -> Option<GitInfo> {
     Some(GitInfo { branch, status })
 }
 
-fn get_git_info_git2() -> Option<GitInfo> {
+fn get_git_info_git2(current_dir: &Path) -> Option<GitInfo> {
     let repo = git2::Repository::open_ext(
-        ".",
+        current_dir,
         RepositoryOpenFlags::CROSS_FS,
         &[] as &[&std::ffi::OsStr],
     )
@@ -195,11 +197,15 @@ impl Module for GitModule {
     fn render(&self, context: &ModuleContext) -> crate::error::Result<Option<String>> {
         use crate::style::{AnsiStyle, Color};
 
+        let Ok(current_dir) = std::env::current_dir() else {
+            return Ok(None);
+        };
+
         // Get git info using configured backend
         let Some(info) = (match context.git_backend {
-            GitBackend::Binary => get_git_info_binary(),
-            GitBackend::Gix => get_git_info_gix(),
-            GitBackend::Git2 => get_git_info_git2(),
+            GitBackend::Binary => get_git_info_binary(&current_dir),
+            GitBackend::Gix => get_git_info_gix(&current_dir),
+            GitBackend::Git2 => get_git_info_git2(&current_dir),
         }) else {
             return Ok(None);
         };
@@ -251,26 +257,14 @@ impl Module for GitModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
-    fn test_git_outside_repo() {
-        // Create temp dir that's not a git repo
-        let temp = env::temp_dir();
-        let original = env::current_dir().unwrap();
+    fn git_backends_return_none_outside_repositories() {
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
 
-        env::set_current_dir(&temp).unwrap();
-
-        let module = GitModule::new();
-        let context = ModuleContext::default();
-
-        let result = module.render(&context).unwrap();
-
-        // Restore original directory
-        env::set_current_dir(original).unwrap();
-
-        // Should return None outside a git repo
-        assert_eq!(result, None);
+        assert!(get_git_info_binary(temp_dir.path()).is_none());
+        assert!(get_git_info_gix(temp_dir.path()).is_none());
+        assert!(get_git_info_git2(temp_dir.path()).is_none());
     }
 
     #[test]
