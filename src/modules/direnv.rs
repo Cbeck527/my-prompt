@@ -17,6 +17,47 @@ impl DirenvModule {
     pub fn new() -> Self {
         Self
     }
+
+    fn render_with_direnv_file(
+        direnv_file: Option<&Path>,
+        context: &ModuleContext,
+    ) -> Option<String> {
+        let direnv_file = direnv_file?;
+        let direnv_root = direnv_file.parent()?;
+        let state = get_direnv_status_slow(direnv_root)?;
+
+        let text = match state {
+            DirenvState::Allowed => "+direnv",
+            DirenvState::Blocked => "!direnv",
+        };
+
+        if context.no_color {
+            Some(format!("[{text}] "))
+        } else {
+            use crate::style::{AnsiStyle, Color};
+            let cyan = AnsiStyle::new(Color::Cyan, false);
+
+            match state {
+                DirenvState::Allowed => Some(format!(
+                    "{}[{}]{} ",
+                    cyan.start_codes(),
+                    text,
+                    AnsiStyle::RESET
+                )),
+                DirenvState::Blocked => {
+                    let bold_red = AnsiStyle::new(Color::Red, true);
+                    Some(format!(
+                        "{}[{}{}{}]{} ",
+                        cyan.start_codes(),
+                        bold_red.start_codes(),
+                        text,
+                        cyan.start_codes(),
+                        AnsiStyle::RESET,
+                    ))
+                }
+            }
+        }
+    }
 }
 
 enum DirenvState {
@@ -26,49 +67,11 @@ enum DirenvState {
 
 impl Module for DirenvModule {
     fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
-        // Check if there's a direnv file
-        let Some(direnv_file) = utils::find_upward(".envrc") else {
-            return Ok(None);
-        };
-        let Some(direnv_root) = direnv_file.parent() else {
-            return Ok(None);
-        };
-
-        let Some(state) = get_direnv_status_slow(direnv_root) else {
-            return Ok(None);
-        };
-
-        let text = match state {
-            DirenvState::Allowed => "+direnv",
-            DirenvState::Blocked => "!direnv",
-        };
-
-        if context.no_color {
-            Ok(Some(format!("[{text}] ")))
-        } else {
-            use crate::style::{AnsiStyle, Color};
-            let cyan = AnsiStyle::new(Color::Cyan, false);
-
-            match state {
-                DirenvState::Allowed => Ok(Some(format!(
-                    "{}[{}]{} ",
-                    cyan.start_codes(),
-                    text,
-                    AnsiStyle::RESET
-                ))),
-                DirenvState::Blocked => {
-                    let bold_red = AnsiStyle::new(Color::Red, true);
-                    Ok(Some(format!(
-                        "{}[{}{}{}]{} ",
-                        cyan.start_codes(),
-                        bold_red.start_codes(),
-                        text,
-                        cyan.start_codes(),
-                        AnsiStyle::RESET,
-                    )))
-                }
-            }
-        }
+        let direnv_file = utils::find_upward(".envrc");
+        Ok(Self::render_with_direnv_file(
+            direnv_file.as_deref(),
+            context,
+        ))
     }
 }
 
@@ -121,10 +124,14 @@ mod tests {
 
     #[test]
     fn test_direnv_without_envrc() {
-        let module = DirenvModule::new();
         let context = ModuleContext::default();
+        let temp_dir = tempfile::tempdir().expect("create temporary directory");
+        let direnv_file = temp_dir.path().join(".envrc");
 
-        let result = module.render(&context).unwrap();
+        let result = DirenvModule::render_with_direnv_file(
+            direnv_file.exists().then_some(direnv_file.as_path()),
+            &context,
+        );
         assert!(
             result.is_none(),
             "Direnv module shouldn't render without .envrc"
