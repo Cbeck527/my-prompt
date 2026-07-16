@@ -183,7 +183,7 @@ jobs:
         run: |
           tag_name="${GITHUB_REF#refs/tags/}"
           gh release create "$tag_name" \
-            --title "Release $tag_name" \
+            --title "$tag_name" \
             --generate-notes \
             release-assets/my-prompt-linux-amd64 \
             release-assets/my-prompt-linux-musl-amd64 \
