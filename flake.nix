@@ -3,7 +3,8 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs = { nixpkgs, ... }:
+  outputs =
+    { nixpkgs, ... }:
     let
       systems = [
         "aarch64-darwin"
@@ -11,11 +12,14 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-    in {
-      devShells = forAllSystems (system:
+    in
+    {
+      devShells = forAllSystems (
+        system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-        in {
+        in
+        {
           default = pkgs.mkShell {
             packages = with pkgs; [
               cargo
@@ -24,6 +28,7 @@
               clippy
               cargo-audit
               cargo-deny
+              cargo-edit
               fish
               git
               perl
@@ -31,7 +36,8 @@
               stdenv.cc
             ];
           };
-        });
+        }
+      );
 
       # TODO: Use Nix package outputs to build multi-platform release artifacts.
     };
