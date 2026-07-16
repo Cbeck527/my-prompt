@@ -1,5 +1,25 @@
+use std::borrow::Cow;
 use std::env;
 use std::path::{Path, PathBuf};
+
+/// Escapes controls before dynamic text is interpolated into prompt output.
+/// Printable Unicode is preserved, while controls use visible Rust-style escapes.
+pub(crate) fn sanitize_display_text(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(char::is_control) {
+        return Cow::Borrowed(text);
+    }
+
+    let mut sanitized = String::with_capacity(text.len());
+    for character in text.chars() {
+        if character.is_control() {
+            sanitized.extend(character.escape_debug());
+        } else {
+            sanitized.push(character);
+        }
+    }
+
+    Cow::Owned(sanitized)
+}
 
 #[must_use]
 pub fn find_upward(name: &str) -> Option<PathBuf> {
@@ -25,6 +45,7 @@ pub fn find_upward_from(start_dir: &Path, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::borrow::Cow;
     use std::fs;
 
     #[test]
@@ -48,5 +69,23 @@ mod tests {
         fs::create_dir_all(&descendant).expect("create descendant directory");
 
         assert_eq!(find_upward_from(&descendant, ".envrc"), None);
+    }
+
+    #[test]
+    fn sanitize_display_text_preserves_printable_unicode_without_allocating() {
+        let text = "plain café 🦀";
+
+        assert!(matches!(
+            sanitize_display_text(text),
+            Cow::Borrowed(sanitized) if sanitized == text
+        ));
+    }
+
+    #[test]
+    fn sanitize_display_text_uses_rust_style_escapes_for_controls() {
+        let text = "nul:\0 tab:\t line:\n carriage:\r escape:\u{1b} delete:\u{7f} c1:\u{85}";
+        let expected = r"nul:\0 tab:\t line:\n carriage:\r escape:\u{1b} delete:\u{7f} c1:\u{85}";
+
+        assert_eq!(sanitize_display_text(text), expected);
     }
 }

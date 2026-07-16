@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
+use crate::modules::utils::sanitize_display_text;
 use whoami::username;
 
 pub struct UsernameModule;
@@ -24,6 +25,7 @@ impl Module for UsernameModule {
             "christopher.becker" => "chris",
             _ => &actual_username,
         };
+        let display_name = sanitize_display_text(display_name);
 
         if context.no_color {
             Ok(Some(format!("{display_name} ")))

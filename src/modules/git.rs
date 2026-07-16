@@ -1,4 +1,5 @@
 use crate::module_trait::{GitBackend, Module, ModuleContext};
+use crate::modules::utils::sanitize_display_text;
 use bitflags::bitflags;
 use git2::RepositoryOpenFlags;
 use std::path::Path;
@@ -210,6 +211,7 @@ impl Module for GitModule {
             return Ok(None);
         };
 
+        let branch = sanitize_display_text(&info.branch);
         let has_changes = info.status.contains(GitStatus::MODIFIED);
         let has_untracked = info.status.contains(GitStatus::UNTRACKED);
 
@@ -224,9 +226,9 @@ impl Module for GitModule {
 
         if context.no_color {
             if indicators.is_empty() {
-                Ok(Some(format!("[{}] ", info.branch)))
+                Ok(Some(format!("[{branch}] ")))
             } else {
-                Ok(Some(format!("[{}{}] ", info.branch, indicators)))
+                Ok(Some(format!("[{branch}{indicators}] ")))
             }
         } else {
             let blue = AnsiStyle::new(Color::Blue, false);
@@ -236,14 +238,14 @@ impl Module for GitModule {
                 Ok(Some(format!(
                     "{}[{}]{} ",
                     blue.start_codes(),
-                    info.branch,
+                    branch,
                     AnsiStyle::RESET
                 )))
             } else {
                 Ok(Some(format!(
                     "{}[{}{}{}{}]{} ",
                     blue.start_codes(),
-                    info.branch,
+                    branch,
                     red.start_codes(),
                     indicators,
                     blue.start_codes(),

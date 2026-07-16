@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
+use crate::modules::utils::sanitize_display_text;
 use std::env;
 use std::path::Path;
 
@@ -46,7 +47,8 @@ impl Module for PathModule {
             return Ok(None);
         };
 
-        let path = normalize_relative_path(&current_dir);
+        let normalized_path = normalize_relative_path(&current_dir);
+        let path = sanitize_display_text(&normalized_path);
 
         if context.no_color {
             Ok(Some(format!("{path} ")))

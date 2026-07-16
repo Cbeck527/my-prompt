@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
+use crate::modules::utils::sanitize_display_text;
 use whoami::hostname;
 
 pub struct HostnameModule;
@@ -19,9 +20,10 @@ impl HostnameModule {
 
 impl Module for HostnameModule {
     fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
-        let Some(hostname) = hostname().ok() else {
+        let Some(actual_hostname) = hostname().ok() else {
             return Ok(None);
         };
+        let hostname = sanitize_display_text(&actual_hostname);
 
         if context.no_color {
             Ok(Some(format!("{hostname} ")))

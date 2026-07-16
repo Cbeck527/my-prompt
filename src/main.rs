@@ -130,11 +130,16 @@ fn parse_claude_json(input: &str) -> Option<module_trait::ClaudeSession> {
         .map_or(0, |p| p.round().clamp(0.0, 100.0) as u8);
 
     // Context used = input_tokens + cache_creation + cache_read (no output_tokens).
-    // current_usage is null before the first API call.
+    // Missing usage is valid before the first API call and represents zero usage.
+    // An aggregate that cannot fit in u64 invalidates only this Claude session.
     // ref: https://code.claude.com/docs/en/statusline#context-window-fields
-    let context_used = parsed.context_window.current_usage.as_ref().map_or(0, |u| {
-        u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens
-    });
+    let context_used = match parsed.context_window.current_usage.as_ref() {
+        Some(usage) => usage
+            .input_tokens
+            .checked_add(usage.cache_creation_input_tokens)?
+            .checked_add(usage.cache_read_input_tokens)?,
+        None => 0,
+    };
 
     Some(module_trait::ClaudeSession {
         model_name: parsed.model.display_name,
@@ -463,5 +468,23 @@ mod tests {
         let session = parse_claude_json(&json).unwrap();
         // output_tokens should NOT be included
         assert_eq!(session.context_used, 20000); // 10000 + 7000 + 3000
+    }
+
+    #[test]
+    fn test_parse_context_used_overflow_returns_none() {
+        let json = serde_json::json!({
+            "model": { "display_name": "Opus" },
+            "context_window": {
+                "context_window_size": 200_000,
+                "current_usage": {
+                    "input_tokens": u64::MAX,
+                    "cache_creation_input_tokens": 1,
+                    "cache_read_input_tokens": 0
+                }
+            }
+        })
+        .to_string();
+
+        assert!(parse_claude_json(&json).is_none());
     }
 }

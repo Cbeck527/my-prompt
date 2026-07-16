@@ -1,10 +1,37 @@
 use std::env;
+#[cfg(unix)]
+use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 const CLAUDE_INPUT: &str = r#"{
   "model": { "display_name": "Opus" },
+  "context_window": {
+    "context_window_size": 200000,
+    "used_percentage": 6.0,
+    "current_usage": {
+      "input_tokens": 8500,
+      "cache_creation_input_tokens": 5000,
+      "cache_read_input_tokens": 2000
+    }
+  }
+}"#;
+
+const OVERFLOWING_CLAUDE_INPUT: &str = r#"{
+  "model": { "display_name": "Opus" },
+  "context_window": {
+    "context_window_size": 200000,
+    "current_usage": {
+      "input_tokens": 18446744073709551615,
+      "cache_creation_input_tokens": 1,
+      "cache_read_input_tokens": 0
+    }
+  }
+}"#;
+
+const HOSTILE_CLAUDE_INPUT: &str = r#"{
+  "model": { "display_name": "safe\u0000\t\n\r\u001b\u007f\u0085 café" },
   "context_window": {
     "context_window_size": 200000,
     "used_percentage": 6.0,
@@ -26,6 +53,36 @@ fn output_text(output: &Output) -> String {
 
 fn error_text(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+fn run_claude_mode(input: &str, current_dir: &Path) -> Output {
+    let mut child = binary_command()
+        .args(["--claude", "--no-color"])
+        .current_dir(current_dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("start Claude mode");
+
+    child
+        .stdin
+        .take()
+        .expect("Claude stdin")
+        .write_all(input.as_bytes())
+        .expect("write Claude input");
+
+    child.wait_with_output().expect("collect Claude output")
+}
+
+fn assert_stdout_has_no_control_characters(output: &Output) {
+    let stdout = std::str::from_utf8(&output.stdout).expect("stdout should be valid UTF-8");
+    let control = stdout.chars().find(|character| character.is_control());
+
+    assert!(
+        control.is_none(),
+        "stdout contains control character {control:?}: {stdout:?}"
+    );
 }
 
 fn path_with_binary_directory() -> std::ffi::OsString {
@@ -68,27 +125,59 @@ fn help_exits_successfully_and_displays_usage() {
 #[test]
 fn claude_mode_reads_stdin_and_renders_without_ansi_codes() {
     let temp_dir = tempfile::tempdir().expect("create temp dir");
-    let mut child = binary_command()
-        .args(["--claude", "--no-color"])
-        .current_dir(temp_dir.path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("start Claude mode");
-
-    child
-        .stdin
-        .take()
-        .expect("Claude stdin")
-        .write_all(CLAUDE_INPUT.as_bytes())
-        .expect("write Claude input");
-
-    let output = child.wait_with_output().expect("collect Claude output");
+    let output = run_claude_mode(CLAUDE_INPUT, temp_dir.path());
     let stdout = output_text(&output);
 
     assert!(output.status.success(), "{}", error_text(&output));
     assert!(stdout.contains("[Opus 15k/200k (6%)]"), "{stdout}");
     assert!(!stdout.contains("\u{1b}["), "{stdout:?}");
+}
+
+#[test]
+fn claude_mode_treats_overflowing_context_usage_as_invalid_input() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let output = run_claude_mode(OVERFLOWING_CLAUDE_INPUT, temp_dir.path());
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(output.stderr.is_empty(), "{}", error_text(&output));
+    assert!(!stdout.contains("[Opus "), "{stdout}");
+}
+
+#[test]
+fn claude_mode_escapes_control_characters_from_model_name() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let output = run_claude_mode(HOSTILE_CLAUDE_INPUT, temp_dir.path());
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(
+        stdout.contains(r"[safe\0\t\n\r\u{1b}\u{7f}\u{85} café 15k/200k (6%)]"),
+        "{stdout:?}"
+    );
+    assert_stdout_has_no_control_characters(&output);
+}
+
+#[cfg(unix)]
+#[test]
+fn path_module_escapes_control_characters_from_current_directory() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let hostile_dir = temp_dir.path().join("safe\t\n\r\u{1b}\u{7f}\u{85} café");
+    fs::create_dir(&hostile_dir).expect("create hostile directory");
+
+    let output = binary_command()
+        .arg("--no-color")
+        .current_dir(&hostile_dir)
+        .output()
+        .expect("render prompt from hostile directory");
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(
+        stdout.contains(r"safe\t\n\r\u{1b}\u{7f}\u{85} café"),
+        "{stdout:?}"
+    );
+    assert_stdout_has_no_control_characters(&output);
 }
 
 #[test]

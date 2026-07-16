@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
+use crate::modules::utils::sanitize_display_text;
 
 pub struct ClaudeModule;
 
@@ -47,7 +48,7 @@ impl Module for ClaudeModule {
             return Ok(None);
         };
 
-        let model = &session.model_name;
+        let model = sanitize_display_text(&session.model_name);
         let used = format_tokens(session.context_used);
         let total = format_tokens(session.context_total);
         let pct = session.percentage;
@@ -157,5 +158,27 @@ mod tests {
         assert!(output.contains("200k"));
         assert!(output.contains("3%"));
         assert!(output.contains("\x1b[")); // Contains ANSI codes
+    }
+
+    #[test]
+    fn colored_output_escapes_model_controls_and_preserves_trusted_ansi() {
+        let module = ClaudeModule::new();
+        let context = ModuleContext {
+            no_color: false,
+            claude_session: Some(ClaudeSession {
+                model_name: "Opus\u{1b}".to_string(),
+                context_used: 1,
+                context_total: 200_000,
+                percentage: 0,
+            }),
+            ..ModuleContext::default()
+        };
+
+        let result = module.render(&context).unwrap();
+
+        assert_eq!(
+            result,
+            Some("\x1b[35m[Opus\\u{1b} 1/200k (0%)]\x1b[0m".to_string())
+        );
     }
 }
