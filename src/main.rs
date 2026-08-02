@@ -1,17 +1,12 @@
-use anyhow::Result;
-use clap::Parser;
-use serde::Deserialize;
 use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-mod error;
-mod module_trait;
-mod modules;
-mod prompt;
-mod style;
-
-use module_trait::GitBackend;
+use anyhow::Result;
+use clap::Parser;
+use my_prompt::module_trait::{self, GitBackend};
+use my_prompt::prompt;
+use serde::Deserialize;
 
 #[derive(Parser)]
 #[command(name = "my-prompt")]

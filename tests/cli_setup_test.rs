@@ -5,6 +5,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use my_prompt::{ModuleContext, PROMPT_FORMAT, render_prompt};
+
 const CLAUDE_INPUT: &str = r#"{
   "model": { "display_name": "Opus" },
   "context_window": {
@@ -191,6 +193,23 @@ fn code_option_renders_the_previous_exit_code() {
 
     assert!(output.status.success(), "{}", error_text(&output));
     assert!(output_text(&output).contains("[exit: 42]"));
+}
+
+#[test]
+fn cli_prompt_output_matches_public_library_rendering() {
+    let context = ModuleContext {
+        exit_code: Some(42),
+        no_color: true,
+        ..ModuleContext::default()
+    };
+    let expected = render_prompt(PROMPT_FORMAT, &context).expect("render prompt through library");
+    let output = binary_command()
+        .args(["--code", "42", "--no-color"])
+        .output()
+        .expect("render prompt through CLI");
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert_eq!(output_text(&output), expected);
 }
 
 #[test]
