@@ -26,6 +26,7 @@ pub struct ModuleContext {
     pub no_color: bool,
     pub claude_session: Option<ClaudeSession>,
     pub git_backend: GitBackend,
+    pub direnv_status_json: Option<String>,
 }
 
 pub trait Module: Send + Sync {

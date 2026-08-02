@@ -358,6 +358,125 @@ fn gix_backend_renders_when_child_process_path_is_empty() {
 }
 
 #[test]
+fn cached_direnv_status_renders_without_direnv_binary() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let direnv_file = temp_dir.path().join(".envrc");
+    fs::write(&direnv_file, "").expect("write .envrc");
+    let direnv_file = fs::canonicalize(&direnv_file).expect("canonicalize .envrc");
+    let status_json = serde_json::json!({
+        "state": {
+            "foundRC": {
+                "path": direnv_file,
+                "allowed": 0,
+            },
+            "loadedRC": null,
+        }
+    })
+    .to_string();
+
+    let output = binary_command()
+        .arg("--no-color")
+        .current_dir(temp_dir.path())
+        .env("MY_PROMPT_DIRENV_STATUS_JSON", status_json)
+        .env("PATH", "")
+        .output()
+        .expect("render with cached direnv status");
+
+    assert!(
+        output_text(&output).contains("[+direnv]"),
+        "{}",
+        error_text(&output)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fish_helper_caches_and_invalidates_direnv_status() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let with_envrc = temp_dir.path().join("with-envrc");
+    let without_envrc = temp_dir.path().join("without-envrc");
+    let fake_bin = temp_dir.path().join("bin");
+    let direnv_file = with_envrc.join(".envrc");
+    let count_file = temp_dir.path().join("direnv-count");
+    let fake_direnv = fake_bin.join("direnv");
+
+    fs::create_dir(&with_envrc).expect("create direnv directory");
+    fs::create_dir(&without_envrc).expect("create directory without .envrc");
+    fs::create_dir(&fake_bin).expect("create fake binary directory");
+    fs::write(&direnv_file, "").expect("write .envrc");
+    let with_envrc = fs::canonicalize(&with_envrc).expect("canonicalize direnv directory");
+    let without_envrc =
+        fs::canonicalize(&without_envrc).expect("canonicalize directory without .envrc");
+    let direnv_file = fs::canonicalize(&direnv_file).expect("canonicalize .envrc");
+    fs::write(
+        &fake_direnv,
+        r#"#!/bin/sh
+count=0
+if [ -r "$TEST_DIRENV_COUNT_FILE" ]; then
+    IFS= read -r count < "$TEST_DIRENV_COUNT_FILE"
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$TEST_DIRENV_COUNT_FILE"
+printf '{"state":{"foundRC":{"path":"%s","allowed":%s},"loadedRC":null}}\n' \
+    "$TEST_DIRENV_FILE" "$TEST_DIRENV_ALLOWED"
+"#,
+    )
+    .expect("write fake direnv");
+    let mut permissions = fs::metadata(&fake_direnv)
+        .expect("read fake direnv metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_direnv, permissions).expect("make fake direnv executable");
+
+    let inherited_path = path_with_binary_directory();
+    let path =
+        env::join_paths(std::iter::once(fake_bin.clone()).chain(env::split_paths(&inherited_path)))
+            .expect("join test PATH entries");
+    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("etc/my-prompt.fish");
+    let output = Command::new("fish")
+        .args([
+            "--no-config",
+            "--private",
+            "-c",
+            r"
+                source $MY_PROMPT_FISH_HELPER
+                set -gx DIRENV_FILE $TEST_DIRENV_FILE
+                set -gx DIRENV_WATCHES watch-one
+                set -gx TEST_DIRENV_ALLOWED 0
+                false
+                fish_prompt
+                fish_prompt
+                set -gx DIRENV_WATCHES watch-two
+                set -gx TEST_DIRENV_ALLOWED 1
+                fish_prompt
+                cd $TEST_WITHOUT_ENVRC
+                set -e DIRENV_FILE
+                set -e DIRENV_WATCHES
+                fish_prompt
+            ",
+        ])
+        .current_dir(&with_envrc)
+        .env("MY_PROMPT_FISH_HELPER", &helper)
+        .env("TEST_DIRENV_FILE", &direnv_file)
+        .env("TEST_DIRENV_COUNT_FILE", &count_file)
+        .env("TEST_WITHOUT_ENVRC", &without_envrc)
+        .env("NO_COLOR", "1")
+        .env("PATH", path)
+        .output()
+        .expect("run Fish direnv cache scenario");
+    let stdout = output_text(&output);
+    let lookup_count = fs::read_to_string(&count_file).expect("read direnv lookup count");
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(stdout.contains("[exit: 1]"), "{stdout}");
+    assert!(stdout.contains("[+direnv]"), "{stdout}");
+    assert!(stdout.contains("[!direnv]"), "{stdout}");
+    assert_eq!(lookup_count, "2\n");
+}
+
+#[test]
 fn fish_helper_is_syntax_valid_and_runs_in_a_clean_fish_process() {
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("etc/my-prompt.fish");
     let syntax_output = Command::new("fish")

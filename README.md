@@ -57,6 +57,12 @@ source /absolute/path/to/my-prompt/etc/my-prompt.fish
 For example, after installing the binary with `cargo install --path .`, ensure
 Cargo's bin directory is on `PATH` before starting Fish.
 
+When direnv's Fish hook is enabled, the helper caches `direnv status --json`
+using direnv's `DIRENV_FILE` and `DIRENV_WATCHES` values. It refreshes the
+status only after direnv reports a different file or watch state, so unchanged
+prompts do not start a second direnv process. Direct `my-prompt` invocations
+without this shell-provided status continue to query direnv as a fallback.
+
 ## Git Backends
 
 By default, `my-prompt` shells out to the `git` binary for branch and status
@@ -139,6 +145,36 @@ cargo run --release -- --bench --no-color
 render, followed by 100 warm render timings. The cold metric includes CLI
 parsing, Claude input parsing when applicable, and Rayon initialization; it
 does not include the operating system's process launch time.
+
+The output labels the direnv path as `external status`, `shell cache`, or
+`no .envrc`. Run all three scenarios from Fish to compare them:
+
+```fish
+set prompt_binary (pwd)/target/release/my-prompt
+
+# External lookup from a directory containing .envrc.
+begin
+    set -lx MY_PROMPT_DIRENV_STATUS_JSON ""
+    $prompt_binary --bench --no-color
+end
+
+# Cached lookup from the same directory.
+begin
+    set -lx MY_PROMPT_DIRENV_STATUS_JSON (direnv status --json | string collect)
+    $prompt_binary --bench --no-color
+end
+
+# Directory without .envrc.
+set empty_dir (mktemp -d)
+pushd $empty_dir
+$prompt_binary --bench --no-color
+popd
+rmdir $empty_dir
+```
+
+The external run's first-render metric includes a cold status lookup, while
+its warm runs show the cost of repeated fallback lookups. The cached and
+no-`.envrc` runs should not start `direnv` during rendering.
 
 ## Platform support
 

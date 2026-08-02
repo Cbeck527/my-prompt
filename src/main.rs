@@ -8,6 +8,8 @@ use my_prompt::module_trait::{self, GitBackend};
 use my_prompt::prompt;
 use serde::Deserialize;
 
+const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
+
 #[derive(Parser)]
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
@@ -84,26 +86,21 @@ fn main() -> ExitCode {
         }
     };
 
+    let direnv_status_json = std::env::var(DIRENV_STATUS_JSON_ENV)
+        .ok()
+        .filter(|status_json| !status_json.is_empty());
+    let context = module_trait::ModuleContext {
+        exit_code: cli.code,
+        no_color: cli.no_color || std::env::var("NO_COLOR").is_ok(),
+        claude_session,
+        git_backend: cli.git_backend,
+        direnv_status_json,
+    };
+
     let result = if cli.bench {
-        handle_bench(
-            modules,
-            cli.code,
-            cli.no_color,
-            cli.git_backend,
-            claude_session,
-            process_start,
-            rayon_threads,
-        )
+        handle_bench(modules, &context, process_start, rayon_threads)
     } else {
-        handle_format(
-            modules,
-            cli.debug,
-            cli.code,
-            cli.no_color,
-            cli.git_backend,
-            claude_session,
-            rayon_threads,
-        )
+        handle_format(modules, cli.debug, &context, rayon_threads)
     };
 
     match result {
@@ -158,23 +155,12 @@ fn parse_claude_json(input: &str) -> Option<module_trait::ClaudeSession> {
 fn handle_format(
     modules: &[prompt::PromptModule],
     debug: bool,
-    exit_code: Option<i32>,
-    no_color: bool,
-    git_backend: GitBackend,
-    claude_session: Option<module_trait::ClaudeSession>,
+    context: &module_trait::ModuleContext,
     rayon_threads: usize,
 ) -> Result<String> {
-    let no_color = no_color || std::env::var("NO_COLOR").is_ok();
-    let context = module_trait::ModuleContext {
-        exit_code,
-        no_color,
-        claude_session,
-        git_backend,
-    };
-
     if debug {
         let start = Instant::now();
-        let output = prompt::render_prompt(modules, &context)?;
+        let output = prompt::render_prompt(modules, context)?;
         let elapsed = start.elapsed();
 
         eprintln!("Modules: {modules:?}");
@@ -183,29 +169,18 @@ fn handle_format(
 
         Ok(output)
     } else {
-        prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))
+        prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))
     }
 }
 
 fn handle_bench(
     modules: &[prompt::PromptModule],
-    exit_code: Option<i32>,
-    no_color: bool,
-    git_backend: GitBackend,
-    claude_session: Option<module_trait::ClaudeSession>,
+    context: &module_trait::ModuleContext,
     process_start: Instant,
     rayon_threads: usize,
 ) -> Result<String> {
-    let no_color = no_color || std::env::var("NO_COLOR").is_ok();
-    let context = module_trait::ModuleContext {
-        exit_code,
-        no_color,
-        claude_session,
-        git_backend,
-    };
-
     let first_render_start = Instant::now();
-    let _ = prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))?;
+    let _ = prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))?;
     let cold_start = process_start.elapsed();
     let first_render = first_render_start.elapsed();
 
@@ -213,7 +188,7 @@ fn handle_bench(
 
     for _ in 0..100 {
         let start = Instant::now();
-        let _ = prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))?;
+        let _ = prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))?;
         times.push(start.elapsed());
     }
 
@@ -222,9 +197,13 @@ fn handle_bench(
     let max = times[99];
     let avg: std::time::Duration = times.iter().sum::<std::time::Duration>() / 100;
     let p99 = times[98];
+    let has_direnv_file = my_prompt::modules::utils::find_upward(".envrc").is_some();
+    let direnv_lookup =
+        direnv_benchmark_label(has_direnv_file, context.direnv_status_json.is_some());
+    let git_backend = context.git_backend;
 
     Ok(format!(
-        "Using backend: {git_backend:?}\nRayon threads: {rayon_threads}\nCold start: {:.2}ms (process start to first render; first render {:.2}ms)\n100 warm runs: min={:.2}ms avg={:.2}ms max={:.2}ms p99={:.2}ms\n",
+        "Using backend: {git_backend:?}\nRayon threads: {rayon_threads}\nDirenv lookup: {direnv_lookup}\nCold start: {:.2}ms (process start to first render; first render {:.2}ms)\n100 warm runs: min={:.2}ms avg={:.2}ms max={:.2}ms p99={:.2}ms\n",
         cold_start.as_secs_f64() * 1000.0,
         first_render.as_secs_f64() * 1000.0,
         min.as_secs_f64() * 1000.0,
@@ -234,9 +213,34 @@ fn handle_bench(
     ))
 }
 
+fn direnv_benchmark_label(has_direnv_file: bool, has_cached_status: bool) -> &'static str {
+    if !has_direnv_file {
+        "no .envrc"
+    } else if has_cached_status {
+        "shell cache"
+    } else {
+        "external status"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn direnv_benchmark_label_reports_no_envrc() {
+        assert_eq!(direnv_benchmark_label(false, false), "no .envrc");
+    }
+
+    #[test]
+    fn direnv_benchmark_label_reports_shell_cache() {
+        assert_eq!(direnv_benchmark_label(true, true), "shell cache");
+    }
+
+    #[test]
+    fn direnv_benchmark_label_reports_external_status() {
+        assert_eq!(direnv_benchmark_label(true, false), "external status");
+    }
 
     fn full_json() -> String {
         serde_json::json!({

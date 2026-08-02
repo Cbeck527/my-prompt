@@ -1,5 +1,6 @@
+use std::path::{Path, PathBuf};
+
 use serde::Deserialize;
-use std::path::Path;
 
 use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
@@ -23,43 +24,44 @@ impl DirenvModule {
         context: &ModuleContext,
     ) -> Option<String> {
         let direnv_file = direnv_file?;
-        let direnv_root = direnv_file.parent()?;
-        let state = get_direnv_status_slow(direnv_root)?;
+        let state = get_direnv_state(direnv_file, context.direnv_status_json.as_deref())?;
 
-        let text = match state {
-            DirenvState::Allowed => "+direnv",
-            DirenvState::Blocked => "!direnv",
-        };
+        Some(render_direnv_state(state, context))
+    }
+}
 
-        if context.no_color {
-            Some(format!("[{text}] "))
-        } else {
-            use crate::style::{AnsiStyle, Color};
-            let cyan = AnsiStyle::new(Color::Cyan, false);
+fn render_direnv_state(state: DirenvState, context: &ModuleContext) -> String {
+    let text = match state {
+        DirenvState::Allowed => "+direnv",
+        DirenvState::Blocked => "!direnv",
+    };
 
-            match state {
-                DirenvState::Allowed => Some(format!(
-                    "{}[{}]{} ",
+    if context.no_color {
+        format!("[{text}] ")
+    } else {
+        use crate::style::{AnsiStyle, Color};
+        let cyan = AnsiStyle::new(Color::Cyan, false);
+
+        match state {
+            DirenvState::Allowed => {
+                format!("{}[{}]{} ", cyan.start_codes(), text, AnsiStyle::RESET)
+            }
+            DirenvState::Blocked => {
+                let bold_red = AnsiStyle::new(Color::Red, true);
+                format!(
+                    "{}[{}{}{}]{} ",
                     cyan.start_codes(),
+                    bold_red.start_codes(),
                     text,
-                    AnsiStyle::RESET
-                )),
-                DirenvState::Blocked => {
-                    let bold_red = AnsiStyle::new(Color::Red, true);
-                    Some(format!(
-                        "{}[{}{}{}]{} ",
-                        cyan.start_codes(),
-                        bold_red.start_codes(),
-                        text,
-                        cyan.start_codes(),
-                        AnsiStyle::RESET,
-                    ))
-                }
+                    cyan.start_codes(),
+                    AnsiStyle::RESET,
+                )
             }
         }
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum DirenvState {
     Allowed,
     Blocked,
@@ -76,14 +78,17 @@ impl Module for DirenvModule {
 }
 
 #[derive(Deserialize)]
-struct DirenvStatusStateResult {
+struct DirenvStatusRc {
+    path: PathBuf,
     allowed: u8,
 }
 
 #[derive(Deserialize)]
 struct DirenvStatusState {
+    #[serde(rename = "foundRC")]
+    found_rc: Option<DirenvStatusRc>,
     #[serde(rename = "loadedRC")]
-    loaded_rc: DirenvStatusStateResult,
+    _loaded_rc: Option<DirenvStatusRc>,
 }
 
 #[derive(Deserialize)]
@@ -91,7 +96,29 @@ struct DirenvStatus {
     state: DirenvStatusState,
 }
 
-fn get_direnv_status_slow(direnv_root: &Path) -> Option<DirenvState> {
+fn parse_direnv_status(status_text: &str, direnv_file: &Path) -> Option<DirenvState> {
+    let status = serde_json::from_str::<DirenvStatus>(status_text).ok()?;
+    let found_rc = status.state.found_rc?;
+
+    if found_rc.path.as_path() != direnv_file {
+        return None;
+    }
+
+    match found_rc.allowed {
+        0 => Some(DirenvState::Allowed),
+        1 | 2 => Some(DirenvState::Blocked),
+        _ => None,
+    }
+}
+
+fn get_direnv_state(direnv_file: &Path, cached_status_json: Option<&str>) -> Option<DirenvState> {
+    cached_status_json
+        .and_then(|status_json| parse_direnv_status(status_json, direnv_file))
+        .or_else(|| get_direnv_status_slow(direnv_file))
+}
+
+fn get_direnv_status_slow(direnv_file: &Path) -> Option<DirenvState> {
+    let direnv_root = direnv_file.parent()?;
     let Ok(output) = std::process::Command::new("direnv")
         .arg("status")
         .arg("--json")
@@ -105,22 +132,99 @@ fn get_direnv_status_slow(direnv_root: &Path) -> Option<DirenvState> {
         return None;
     }
 
-    let status_text = String::from_utf8_lossy(&output.stdout);
-    let Ok(status) = serde_json::from_str::<DirenvStatus>(&status_text) else {
-        return None; // JSON parsing failed
-    };
-
-    // Check if direnv is loaded (direnv uses 0=loaded, 1=blocked)
-    if status.state.loaded_rc.allowed == 0 {
-        Some(DirenvState::Allowed)
-    } else {
-        Some(DirenvState::Blocked)
-    }
+    let status_text = std::str::from_utf8(&output.stdout).ok()?;
+    parse_direnv_status(status_text, direnv_file)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn status_json(
+        direnv_file: &Path,
+        found_allowed: Option<u8>,
+        loaded_allowed: Option<u8>,
+    ) -> String {
+        let rc = |allowed| {
+            serde_json::json!({
+                "path": direnv_file,
+                "allowed": allowed,
+            })
+        };
+
+        serde_json::json!({
+            "state": {
+                "foundRC": found_allowed.map(rc),
+                "loadedRC": loaded_allowed.map(rc),
+            }
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn parses_allowed_found_rc_when_loaded_rc_is_null() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let status = status_json(direnv_file, Some(0), None);
+
+        assert_eq!(
+            parse_direnv_status(&status, direnv_file),
+            Some(DirenvState::Allowed)
+        );
+    }
+
+    #[test]
+    fn parses_not_allowed_found_rc_as_blocked() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let status = status_json(direnv_file, Some(1), None);
+
+        assert_eq!(
+            parse_direnv_status(&status, direnv_file),
+            Some(DirenvState::Blocked)
+        );
+    }
+
+    #[test]
+    fn parses_denied_found_rc_as_blocked() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let status = status_json(direnv_file, Some(2), None);
+
+        assert_eq!(
+            parse_direnv_status(&status, direnv_file),
+            Some(DirenvState::Blocked)
+        );
+    }
+
+    #[test]
+    fn returns_none_when_found_rc_is_null() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let status = status_json(direnv_file, None, None);
+
+        assert_eq!(parse_direnv_status(&status, direnv_file), None);
+    }
+
+    #[test]
+    fn returns_none_for_malformed_status_json() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+
+        assert_eq!(parse_direnv_status("not json", direnv_file), None);
+    }
+
+    #[test]
+    fn returns_none_for_unknown_allowed_value() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let status = status_json(direnv_file, Some(3), None);
+
+        assert_eq!(parse_direnv_status(&status, direnv_file), None);
+    }
+
+    #[test]
+    fn returns_none_when_found_rc_path_does_not_match() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let other_direnv_file = Path::new("/tmp/other/.envrc");
+        let status = status_json(other_direnv_file, Some(0), None);
+
+        assert_eq!(parse_direnv_status(&status, direnv_file), None);
+    }
 
     #[test]
     fn test_direnv_without_envrc() {
