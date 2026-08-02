@@ -65,7 +65,24 @@ information. A library-based backend is also available via `--git-backend`:
 | Backend | Flag | Description |
 |---------|------|-------------|
 | `binary` | `--git-backend binary` | Default. Shells out to `git`. Requires `git` on `$PATH`. |
-| `gix` | `--git-backend gix` | Pure Rust via [gitoxide](https://github.com/GitoxideLabs/gitoxide). No external dependencies. |
+| `gix` | `--git-backend gix` | Uses [gitoxide](https://github.com/GitoxideLabs/gitoxide). Does not require a Git binary at runtime. |
+
+Both backends follow the same prompt contract. A clean repository renders
+`[branch]`; `+` means there is a tracked change across `HEAD`, the index, or the
+worktree, and `?` means there is at least one non-ignored untracked file or
+directory. The indicators retain that order, so a repository with both kinds
+of changes renders `[branch+?]`.
+
+Named and unborn branches use their short branch name. Detached repositories
+use `HEAD`. Modified or untracked files inside submodules are ignored, while a
+changed checked-out submodule commit or staged gitlink renders `+`. If the
+selected backend is unavailable or cannot determine trustworthy branch and
+status information, the Git segment is omitted.
+
+The `gix` backend avoids the runtime Git dependency, but untracked-file scans
+may remain slower than the `binary` backend in large repositories. Use
+`--bench --git-backend binary` and `--bench --git-backend gix` to compare them
+in a representative working tree.
 
 Prompt modules use a Rayon thread pool capped at four threads or the host's
 available parallelism, whichever is lower. A positive `RAYON_NUM_THREADS`

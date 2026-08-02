@@ -1,5 +1,4 @@
 use std::env;
-#[cfg(unix)]
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -106,6 +105,68 @@ fn path_with_binary_directory() -> std::ffi::OsString {
     let paths = std::iter::once(binary_directory.to_path_buf()).chain(inherited_paths);
 
     env::join_paths(paths).expect("join PATH entries")
+}
+
+struct CliGitRepository {
+    _workspace: tempfile::TempDir,
+    root: PathBuf,
+}
+
+fn run_git_setup(current_dir: &Path, global_config: &Path, args: &[&str]) {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(current_dir)
+        .env("GIT_CONFIG_GLOBAL", global_config)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .output()
+        .expect("run Git setup command");
+
+    assert!(
+        output.status.success(),
+        "git {args:?} failed: {}",
+        error_text(&output)
+    );
+}
+
+impl CliGitRepository {
+    fn clean() -> Self {
+        let workspace = tempfile::tempdir().expect("create CLI repository workspace");
+        let root = workspace.path().join("repository");
+        let global_config = workspace.path().join("global.gitconfig");
+
+        fs::create_dir(&root).expect("create CLI repository directory");
+        fs::write(
+            &global_config,
+            "[user]\nname = My Prompt Tests\nemail = my-prompt@example.invalid\n[commit]\ngpgSign = false\n",
+        )
+        .expect("write isolated Git config");
+
+        run_git_setup(
+            &root,
+            &global_config,
+            &["init", "--quiet", "--initial-branch=main"],
+        );
+        fs::write(root.join("tracked.txt"), "tracked\n")
+            .expect("write tracked CLI repository file");
+        run_git_setup(&root, &global_config, &["add", "tracked.txt"]);
+        run_git_setup(
+            &root,
+            &global_config,
+            &["commit", "--quiet", "--message", "initial commit"],
+        );
+
+        Self {
+            _workspace: workspace,
+            root,
+        }
+    }
+
+    fn path(&self) -> &Path {
+        &self.root
+    }
 }
 
 #[test]
@@ -264,6 +325,36 @@ fn git2_backend_is_rejected() {
 
     assert_eq!(output.status.code(), Some(2));
     assert!(error_text(&output).contains("invalid value 'git2'"));
+}
+
+#[test]
+fn binary_backend_omits_git_segment_when_git_is_missing() {
+    let repository = CliGitRepository::clean();
+    let output = binary_command()
+        .args(["--no-color", "--git-backend", "binary"])
+        .current_dir(repository.path())
+        .env("PATH", "")
+        .output()
+        .expect("render with missing Git binary");
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(!stdout.contains("[main"), "{stdout}");
+}
+
+#[test]
+fn gix_backend_renders_when_child_process_path_is_empty() {
+    let repository = CliGitRepository::clean();
+    let output = binary_command()
+        .args(["--no-color", "--git-backend", "gix"])
+        .current_dir(repository.path())
+        .env("PATH", "")
+        .output()
+        .expect("render with gix and an empty PATH");
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(stdout.contains("[main]"), "{stdout}");
 }
 
 #[test]
