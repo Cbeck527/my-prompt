@@ -84,6 +84,12 @@ may remain slower than the `binary` backend in large repositories. Use
 `--bench --git-backend binary` and `--bench --git-backend gix` to compare them
 in a representative working tree.
 
+Upstream gitoxide work may improve this in a future `gix` release: the
+[UNTR decoder fix](https://github.com/GitoxideLabs/gitoxide/pull/2591) has
+landed, while [using Git's UNTR cache during directory walks](https://github.com/GitoxideLabs/gitoxide/pull/2503)
+remains in progress. If that work lands, repositories with
+`core.untrackedCache` enabled may require fewer directory scans.
+
 Prompt modules use a Rayon thread pool capped at four threads or the host's
 available parallelism, whichever is lower. A positive `RAYON_NUM_THREADS`
 value is honored within that cap; zero and invalid values use the capped host
