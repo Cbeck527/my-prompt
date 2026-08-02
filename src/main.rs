@@ -63,7 +63,7 @@ struct ClaudeContextWindowCurrentUsage {
 }
 
 fn main() -> ExitCode {
-    prompt::init_thread_pool();
+    let process_start = Instant::now();
 
     let cli = Cli::parse();
 
@@ -76,6 +76,14 @@ fn main() -> ExitCode {
         (prompt::PROMPT_FORMAT, None)
     };
 
+    let rayon_threads = match prompt::init_thread_pool() {
+        Ok(thread_count) => thread_count,
+        Err(error) => {
+            eprintln!("Error: failed to initialize Rayon thread pool: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+
     let result = if cli.bench {
         handle_bench(
             modules,
@@ -83,6 +91,8 @@ fn main() -> ExitCode {
             cli.no_color,
             cli.git_backend,
             claude_session,
+            process_start,
+            rayon_threads,
         )
     } else {
         handle_format(
@@ -92,6 +102,7 @@ fn main() -> ExitCode {
             cli.no_color,
             cli.git_backend,
             claude_session,
+            rayon_threads,
         )
     };
 
@@ -151,6 +162,7 @@ fn handle_format(
     no_color: bool,
     git_backend: GitBackend,
     claude_session: Option<module_trait::ClaudeSession>,
+    rayon_threads: usize,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
@@ -166,6 +178,7 @@ fn handle_format(
         let elapsed = start.elapsed();
 
         eprintln!("Modules: {modules:?}");
+        eprintln!("Rayon threads: {rayon_threads}");
         eprintln!("Execution time: {:.2}ms", elapsed.as_secs_f64() * 1000.0);
 
         Ok(output)
@@ -180,6 +193,8 @@ fn handle_bench(
     no_color: bool,
     git_backend: GitBackend,
     claude_session: Option<module_trait::ClaudeSession>,
+    process_start: Instant,
+    rayon_threads: usize,
 ) -> Result<String> {
     let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let context = module_trait::ModuleContext {
@@ -189,9 +204,12 @@ fn handle_bench(
         git_backend,
     };
 
-    println!("Using backend: {git_backend:?}");
+    let first_render_start = Instant::now();
+    let _ = prompt::render_prompt(modules, &context).map_err(|e| anyhow::anyhow!(e))?;
+    let cold_start = process_start.elapsed();
+    let first_render = first_render_start.elapsed();
 
-    let mut times = Vec::new();
+    let mut times = Vec::with_capacity(100);
 
     for _ in 0..100 {
         let start = Instant::now();
@@ -206,7 +224,9 @@ fn handle_bench(
     let p99 = times[98];
 
     Ok(format!(
-        "100 runs: min={:.2}ms avg={:.2}ms max={:.2}ms p99={:.2}ms\n",
+        "Using backend: {git_backend:?}\nRayon threads: {rayon_threads}\nCold start: {:.2}ms (process start to first render; first render {:.2}ms)\n100 warm runs: min={:.2}ms avg={:.2}ms max={:.2}ms p99={:.2}ms\n",
+        cold_start.as_secs_f64() * 1000.0,
+        first_render.as_secs_f64() * 1000.0,
         min.as_secs_f64() * 1000.0,
         avg.as_secs_f64() * 1000.0,
         max.as_secs_f64() * 1000.0,

@@ -55,6 +55,9 @@ pub const CLAUDE_FORMAT: &[PromptModule] = &[
     PromptModule::Claude,
 ];
 
+/// Maximum number of Rayon worker threads used by prompt rendering.
+pub const MAX_RAYON_THREADS: usize = 4;
+
 /// Renders the given modules in parallel and combines their output.
 ///
 /// # Errors
@@ -73,9 +76,58 @@ pub fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> Resul
     Ok(output)
 }
 
-pub fn init_thread_pool() {
-    let max_threads = std::cmp::min(rayon::current_num_threads(), 4);
-    let _ = rayon::ThreadPoolBuilder::new()
-        .num_threads(max_threads)
-        .build_global();
+/// Initializes the global Rayon pool for prompt rendering.
+///
+/// # Errors
+///
+/// Returns the Rayon initialization error when another global pool was already
+/// initialized or when Rayon cannot create the requested worker threads.
+pub fn init_thread_pool() -> std::result::Result<usize, rayon::ThreadPoolBuildError> {
+    let available_threads =
+        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let requested_threads = std::env::var("RAYON_NUM_THREADS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok());
+    let thread_count = configured_thread_count(available_threads, requested_threads);
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(thread_count)
+        .build_global()?;
+
+    Ok(rayon::current_num_threads())
+}
+
+fn configured_thread_count(available_threads: usize, requested_threads: Option<usize>) -> usize {
+    let available_threads = available_threads.max(1);
+    let requested_threads = requested_threads
+        .filter(|thread_count| *thread_count > 0)
+        .unwrap_or(available_threads);
+
+    requested_threads
+        .min(available_threads)
+        .clamp(1, MAX_RAYON_THREADS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn configured_thread_count_uses_host_limit_by_default() {
+        assert_eq!(configured_thread_count(2, None), 2);
+        assert_eq!(configured_thread_count(16, None), MAX_RAYON_THREADS);
+    }
+
+    #[test]
+    fn configured_thread_count_honors_request_within_host_limit() {
+        assert_eq!(configured_thread_count(16, Some(1)), 1);
+        assert_eq!(configured_thread_count(16, Some(3)), 3);
+    }
+
+    #[test]
+    fn configured_thread_count_caps_request_and_rejects_zero() {
+        assert_eq!(configured_thread_count(16, Some(16)), MAX_RAYON_THREADS);
+        assert_eq!(configured_thread_count(2, Some(16)), 2);
+        assert_eq!(configured_thread_count(4, Some(0)), 4);
+    }
 }

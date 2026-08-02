@@ -67,6 +67,13 @@ By default, `my-prompt` shells out to the `git` binary for branch and status inf
 | `gix` | `--git-backend gix` | Pure Rust via [gitoxide](https://github.com/GitoxideLabs/gitoxide). No external dependencies. |
 | `git2` | `--git-backend git2` | [libgit2](https://libgit2.org/) bindings (vendored). No external dependencies. |
 
+Prompt modules use a Rayon thread pool capped at four threads or the host's
+available parallelism, whichever is lower. A positive `RAYON_NUM_THREADS`
+value is honored within that cap; zero and invalid values use the capped host
+limit.
+The pool is initialized only after CLI parsing, so `--help`, `--version`, and
+argument errors do not start worker threads.
+
 ## Development with Nix
 
 Enter the development shell to get Rust, Cargo, formatting and linting tools,
@@ -95,6 +102,20 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 ```
 
 This tells LLVM to use the full instruction set of your specific CPU (e.g., Apple Silicon features on M-series Macs). Do **not** use this for cross-compiled or distributed builds -- the resulting binary will only run on CPUs with the same (or newer) feature set.
+
+## Benchmarking
+
+Use the release binary for representative process measurements:
+
+```bash
+cargo build --release --locked
+cargo run --release -- --bench --no-color
+```
+
+`--bench` reports cold startup from the beginning of `main` through the first
+render, followed by 100 warm render timings. The cold metric includes CLI
+parsing, Claude input parsing when applicable, and Rayon initialization; it
+does not include the operating system's process launch time.
 
 ## Platform support
 

@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use my_prompt::prompt::MAX_RAYON_THREADS;
 use my_prompt::{ModuleContext, PROMPT_FORMAT, render_prompt};
 
 const CLAUDE_INPUT: &str = r#"{
@@ -77,6 +78,16 @@ fn run_claude_mode(input: &str, current_dir: &Path) -> Output {
     child.wait_with_output().expect("collect Claude output")
 }
 
+fn run_benchmark_with_threads(thread_count: &str) -> Output {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    binary_command()
+        .args(["--bench", "--final-rendering", "--no-color"])
+        .current_dir(temp_dir.path())
+        .env("RAYON_NUM_THREADS", thread_count)
+        .output()
+        .expect("run benchmark")
+}
+
 fn assert_stdout_has_no_control_characters(output: &Output) {
     let stdout = std::str::from_utf8(&output.stdout).expect("stdout should be valid UTF-8");
     let control = stdout.chars().find(|character| character.is_control());
@@ -122,6 +133,27 @@ fn help_exits_successfully_and_displays_usage() {
 
     assert!(output.status.success(), "{}", error_text(&output));
     assert!(output_text(&output).contains("Usage: my-prompt"));
+}
+
+#[test]
+fn rayon_thread_count_is_configured_in_a_child_process() {
+    let one_thread = run_benchmark_with_threads("1");
+    assert!(one_thread.status.success(), "{}", error_text(&one_thread));
+    assert!(output_text(&one_thread).contains("Rayon threads: 1"));
+
+    let capped_threads = run_benchmark_with_threads("16");
+    assert!(
+        capped_threads.status.success(),
+        "{}",
+        error_text(&capped_threads)
+    );
+    let host_limit = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let expected_threads = host_limit.min(MAX_RAYON_THREADS);
+    assert!(
+        output_text(&capped_threads).contains(&format!("Rayon threads: {expected_threads}")),
+        "{}",
+        output_text(&capped_threads)
+    );
 }
 
 #[test]
