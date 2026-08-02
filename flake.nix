@@ -31,8 +31,6 @@
               cargo-edit
               fish
               git
-              perl
-              gnumake
               stdenv.cc
             ];
           };

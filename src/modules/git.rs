@@ -1,7 +1,6 @@
 use crate::module_trait::{GitBackend, Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 use bitflags::bitflags;
-use git2::RepositoryOpenFlags;
 use std::path::Path;
 
 bitflags! {
@@ -144,56 +143,6 @@ fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
     Some(GitInfo { branch, status })
 }
 
-fn get_git_info_git2(current_dir: &Path) -> Option<GitInfo> {
-    let repo = git2::Repository::open_ext(
-        current_dir,
-        RepositoryOpenFlags::CROSS_FS,
-        &[] as &[&std::ffi::OsStr],
-    )
-    .ok()?;
-
-    // Get branch name
-    let head = repo.head().ok()?;
-    let branch = head.shorthand().unwrap_or("HEAD").to_string();
-
-    // Get status with optimized options
-    let mut opts = git2::StatusOptions::new();
-    opts.show(git2::StatusShow::IndexAndWorkdir)
-        .exclude_submodules(true) // Skip submodules
-        .include_untracked(true) // We need untracked files
-        .include_unmodified(false); // Skip unchanged files
-
-    let Ok(statuses) = repo.statuses(Some(&mut opts)) else {
-        return Some(GitInfo {
-            branch,
-            status: GitStatus::empty(),
-        });
-    };
-
-    let mut status = GitStatus::empty();
-    for entry in statuses.iter() {
-        let s = entry.status();
-        if s.is_wt_modified()
-            || s.is_wt_typechange()
-            || s.is_index_modified()
-            || s.is_index_new()
-            || s.is_index_deleted()
-            || s.is_index_renamed()
-            || s.is_index_typechange()
-        {
-            status |= GitStatus::MODIFIED;
-        }
-        if s.is_wt_new() {
-            status |= GitStatus::UNTRACKED;
-        }
-        if status.contains(GitStatus::MODIFIED | GitStatus::UNTRACKED) {
-            break;
-        }
-    }
-
-    Some(GitInfo { branch, status })
-}
-
 impl Module for GitModule {
     fn render(&self, context: &ModuleContext) -> crate::error::Result<Option<String>> {
         use crate::style::{AnsiStyle, Color};
@@ -206,7 +155,6 @@ impl Module for GitModule {
         let Some(info) = (match context.git_backend {
             GitBackend::Binary => get_git_info_binary(&current_dir),
             GitBackend::Gix => get_git_info_gix(&current_dir),
-            GitBackend::Git2 => get_git_info_git2(&current_dir),
         }) else {
             return Ok(None);
         };
@@ -266,7 +214,6 @@ mod tests {
 
         assert!(get_git_info_binary(temp_dir.path()).is_none());
         assert!(get_git_info_gix(temp_dir.path()).is_none());
-        assert!(get_git_info_git2(temp_dir.path()).is_none());
     }
 
     #[test]

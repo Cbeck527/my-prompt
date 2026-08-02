@@ -9,8 +9,6 @@ pub enum GitBackend {
     Binary,
     /// Use gix library (pure Rust)
     Gix,
-    /// Use git2 library (libgit2 bindings)
-    Git2,
 }
 
 /// Session information from Claude Code, passed via stdin JSON.

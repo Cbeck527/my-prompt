@@ -256,6 +256,17 @@ fn invalid_arguments_exit_with_clap_usage_error() {
 }
 
 #[test]
+fn git2_backend_is_rejected() {
+    let output = binary_command()
+        .args(["--git-backend", "git2"])
+        .output()
+        .expect("run removed Git backend");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(error_text(&output).contains("invalid value 'git2'"));
+}
+
+#[test]
 fn fish_helper_is_syntax_valid_and_runs_in_a_clean_fish_process() {
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("etc/my-prompt.fish");
     let syntax_output = Command::new("fish")

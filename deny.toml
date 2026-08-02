@@ -34,10 +34,6 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # Direct dependencies must be maintained. Transitive maintenance notices are
 # addressed through the dependencies that select them.
 unmaintained = "workspace"
-ignore = [
-    { id = "RUSTSEC-2026-0183", reason = "The Git2 backend does not call Remote::list(); remove after CB-166 upgrades git2 to >=0.21.0." },
-    { id = "RUSTSEC-2026-0184", reason = "The Git2 backend does not call Blame::blame_buffer(); remove after CB-166 upgrades git2 to >=0.21.0." },
-]
 
 [sources]
 # Lint level for what to happen when a crate from a crate registry that is not in the allow list is encountered
