@@ -1,10 +1,9 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 use std::env;
 use std::path::Path;
 
-pub struct PathModule;
+pub(crate) struct PathModule;
 
 impl Default for PathModule {
     fn default() -> Self {
@@ -14,7 +13,7 @@ impl Default for PathModule {
 
 impl PathModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
@@ -42,25 +41,25 @@ fn normalize_relative_path(current_dir: &Path) -> String {
 }
 
 impl Module for PathModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let Ok(current_dir) = env::current_dir() else {
-            return Ok(None);
+            return None;
         };
 
         let normalized_path = normalize_relative_path(&current_dir);
         let path = sanitize_display_text(&normalized_path);
 
         if context.no_color {
-            Ok(Some(format!("{path} ")))
+            Some(format!("{path} "))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::White, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}{}{} ",
                 style.start_codes(),
                 path,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -74,7 +73,7 @@ mod tests {
         let module = PathModule::new();
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some(), "Path module should render something");
 
         let output = result.unwrap();

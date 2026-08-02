@@ -1,8 +1,7 @@
 use std::env;
 
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
-pub struct EnvsModule;
+pub(crate) struct EnvsModule;
 
 impl Default for EnvsModule {
     fn default() -> Self {
@@ -12,7 +11,7 @@ impl Default for EnvsModule {
 
 impl EnvsModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
@@ -34,7 +33,7 @@ const SPECIAL_ENV_VARS: &[SpecialEnvVars] = &[
 ];
 
 impl Module for EnvsModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let present_vars: Vec<_> = SPECIAL_ENV_VARS
             .iter()
             .filter(|v| env::var_os(v.name).is_some())
@@ -42,22 +41,22 @@ impl Module for EnvsModule {
             .collect();
 
         if present_vars.is_empty() {
-            return Ok(None);
+            return None;
         }
 
         let text = present_vars.join(" ");
 
         if context.no_color {
-            Ok(Some(format!("[{text}] ")))
+            Some(format!("[{text}] "))
         } else {
             use crate::style::{AnsiStyle, Color};
 
-            Ok(Some(format!(
+            Some(format!(
                 "{}[{}]{} ",
                 AnsiStyle::new(Color::Magenta, false).start_codes(),
                 text,
                 AnsiStyle::RESET,
-            )))
+            ))
         }
     }
 }
@@ -125,7 +124,7 @@ mod tests {
         let module = EnvsModule::new();
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(
             result.is_none(),
             "Envs module shouldn't render without any special vars"
@@ -145,7 +144,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(
             result,
             Some("[+nix] ".to_string()),
@@ -166,7 +165,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(
             result,
             Some("[+virtualenv] ".to_string()),
@@ -190,7 +189,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(
             result,
             Some("[+nix +virtualenv] ".to_string()),

@@ -1,9 +1,8 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 use whoami::hostname;
 
-pub struct HostnameModule;
+pub(crate) struct HostnameModule;
 
 impl Default for HostnameModule {
     fn default() -> Self {
@@ -13,29 +12,27 @@ impl Default for HostnameModule {
 
 impl HostnameModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
 
 impl Module for HostnameModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
-        let Some(actual_hostname) = hostname().ok() else {
-            return Ok(None);
-        };
+    fn render(&self, context: &ModuleContext) -> Option<String> {
+        let actual_hostname = hostname().ok()?;
         let hostname = sanitize_display_text(&actual_hostname);
 
         if context.no_color {
-            Ok(Some(format!("{hostname} ")))
+            Some(format!("{hostname} "))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Cyan, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}{}{} ",
                 style.start_codes(),
                 hostname,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -49,7 +46,7 @@ mod tests {
         let module = HostnameModule::new();
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some(), "Hostname module should render something");
 
         let output = result.unwrap();

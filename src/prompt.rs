@@ -1,10 +1,9 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::{character, claude, direnv, envs, fail, git, hostname, path, time, username};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
-pub enum PromptModule {
+pub(crate) enum PromptModule {
     Character,
     Claude,
     Direnv,
@@ -19,7 +18,7 @@ pub enum PromptModule {
 }
 
 impl PromptModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         match self {
             Self::Character => character::CharacterModule::new().render(context),
             Self::Claude => claude::ClaudeModule::new().render(context),
@@ -35,7 +34,7 @@ impl PromptModule {
     }
 }
 
-pub const PROMPT_FORMAT: &[PromptModule] = &[
+pub(crate) const PROMPT_FORMAT: &[PromptModule] = &[
     PromptModule::Fail,
     PromptModule::Username,
     PromptModule::Path,
@@ -45,9 +44,9 @@ pub const PROMPT_FORMAT: &[PromptModule] = &[
     PromptModule::Character,
 ];
 
-pub const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
+pub(crate) const TRANSIENT_FORMAT: &[PromptModule] = &[PromptModule::Time, PromptModule::Character];
 
-pub const CLAUDE_FORMAT: &[PromptModule] = &[
+pub(crate) const CLAUDE_FORMAT: &[PromptModule] = &[
     PromptModule::Path,
     PromptModule::Envs,
     PromptModule::Direnv,
@@ -56,24 +55,21 @@ pub const CLAUDE_FORMAT: &[PromptModule] = &[
 ];
 
 /// Maximum number of Rayon worker threads used by prompt rendering.
-pub const MAX_RAYON_THREADS: usize = 4;
+const MAX_RAYON_THREADS: usize = 4;
 
-/// Renders the given modules in parallel and combines their output.
-///
-/// # Errors
-///
-/// Returns `PromptError::ExternalCommandFailed` if any module's external command fails.
-pub fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> Result<String> {
-    let parts: Vec<_> = modules.par_iter().map(|m| m.render(context)).collect();
+/// Renders the given modules in parallel and combines the available output in order.
+pub(crate) fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> String {
+    let parts: Vec<_> = modules
+        .par_iter()
+        .map(|module| module.render(context))
+        .collect();
 
     let mut output = String::new();
-    for result in parts {
-        if let Some(text) = result? {
-            output.push_str(&text);
-        }
+    for text in parts.into_iter().flatten() {
+        output.push_str(&text);
     }
 
-    Ok(output)
+    output
 }
 
 /// Initializes the global Rayon pool for prompt rendering.
@@ -82,7 +78,7 @@ pub fn render_prompt(modules: &[PromptModule], context: &ModuleContext) -> Resul
 ///
 /// Returns the Rayon initialization error when another global pool was already
 /// initialized or when Rayon cannot create the requested worker threads.
-pub fn init_thread_pool() -> std::result::Result<usize, rayon::ThreadPoolBuildError> {
+pub(crate) fn init_thread_pool() -> Result<usize, rayon::ThreadPoolBuildError> {
     let available_threads =
         std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
     let requested_threads = std::env::var("RAYON_NUM_THREADS")
@@ -111,6 +107,33 @@ fn configured_thread_count(available_threads: usize, requested_threads: Option<u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn render_prompt_returns_empty_string_without_modules() {
+        assert_eq!(render_prompt(&[], &ModuleContext::default()), "");
+    }
+
+    #[test]
+    fn render_prompt_returns_output_for_default_format() {
+        let context = ModuleContext {
+            exit_code: Some(0),
+            no_color: true,
+            ..ModuleContext::default()
+        };
+
+        assert!(!render_prompt(PROMPT_FORMAT, &context).is_empty());
+    }
+
+    #[test]
+    fn render_prompt_returns_output_for_transient_format() {
+        let context = ModuleContext {
+            exit_code: Some(0),
+            no_color: true,
+            ..ModuleContext::default()
+        };
+
+        assert!(!render_prompt(TRANSIENT_FORMAT, &context).is_empty());
+    }
 
     #[test]
     fn configured_thread_count_uses_host_limit_by_default() {

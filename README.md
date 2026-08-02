@@ -4,6 +4,18 @@ A spiritual fork of [prmt](https://github.com/3axap4eHko/prmt) which is an ultra
 
 I'm stripping it down and adding features to try and replicate the prompt that I like with [starship](https://starship.rs), but faster!
 
+## Supported interface
+
+`my-prompt` is a self-contained CLI. The `my-prompt` executable and the
+behavior documented here are its only supported interface; this package does
+not provide a Rust library API.
+
+Prompt rendering is best-effort. If a prompt module cannot obtain trustworthy
+data—for example, because an optional command is missing or returns invalid
+output—that segment is omitted silently. Rendering still writes no error and
+exits successfully. Invalid command-line arguments and failures that prevent
+the process from starting its renderer can still exit unsuccessfully.
+
 ## Claude Code Statusline
 
 `my-prompt` can be used as a statusline for [Claude Code](https://code.claude.com/docs/en/statusline). The `--claude` flag produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
@@ -66,7 +78,7 @@ without this shell-provided status continue to query direnv as a fallback.
 ## Git Backends
 
 By default, `my-prompt` shells out to the `git` binary for branch and status
-information. A library-based backend is also available via `--git-backend`:
+information. An in-process backend is also available via `--git-backend`:
 
 | Backend | Flag | Description |
 |---------|------|-------------|

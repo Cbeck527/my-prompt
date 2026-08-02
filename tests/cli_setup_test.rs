@@ -4,9 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use my_prompt::prompt::MAX_RAYON_THREADS;
-use my_prompt::{ModuleContext, PROMPT_FORMAT, render_prompt};
-
+const EXPECTED_MAX_RAYON_THREADS: usize = 4;
 const CLAUDE_INPUT: &str = r#"{
   "model": { "display_name": "Opus" },
   "context_window": {
@@ -189,6 +187,15 @@ fn readme_documents_fish_setup_with_path_requirement() {
 }
 
 #[test]
+fn readme_documents_cli_only_support_boundary() {
+    let readme = include_str!("../README.md");
+
+    assert!(readme.contains("self-contained CLI"));
+    assert!(readme.contains("not provide a Rust library API"));
+    assert!(readme.contains("segment is omitted silently"));
+}
+
+#[test]
 fn help_exits_successfully_and_displays_usage() {
     let output = binary_command().arg("--help").output().expect("run --help");
 
@@ -209,7 +216,7 @@ fn rayon_thread_count_is_configured_in_a_child_process() {
         error_text(&capped_threads)
     );
     let host_limit = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
-    let expected_threads = host_limit.min(MAX_RAYON_THREADS);
+    let expected_threads = host_limit.min(EXPECTED_MAX_RAYON_THREADS);
     assert!(
         output_text(&capped_threads).contains(&format!("Rayon threads: {expected_threads}")),
         "{}",
@@ -289,20 +296,17 @@ fn code_option_renders_the_previous_exit_code() {
 }
 
 #[test]
-fn cli_prompt_output_matches_public_library_rendering() {
-    let context = ModuleContext {
-        exit_code: Some(42),
-        no_color: true,
-        ..ModuleContext::default()
-    };
-    let expected = render_prompt(PROMPT_FORMAT, &context).expect("render prompt through library");
+fn default_rendering_exits_successfully_with_output() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
     let output = binary_command()
-        .args(["--code", "42", "--no-color"])
+        .arg("--no-color")
+        .current_dir(temp_dir.path())
         .output()
         .expect("render prompt through CLI");
 
     assert!(output.status.success(), "{}", error_text(&output));
-    assert_eq!(output_text(&output), expected);
+    assert!(output.stderr.is_empty(), "{}", error_text(&output));
+    assert!(!output_text(&output).is_empty());
 }
 
 #[test]
@@ -339,7 +343,27 @@ fn binary_backend_omits_git_segment_when_git_is_missing() {
     let stdout = output_text(&output);
 
     assert!(output.status.success(), "{}", error_text(&output));
+    assert!(output.stderr.is_empty(), "{}", error_text(&output));
     assert!(!stdout.contains("[main"), "{stdout}");
+}
+
+#[test]
+fn direnv_module_omits_segment_when_direnv_binary_is_missing() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    fs::write(temp_dir.path().join(".envrc"), "").expect("write .envrc");
+
+    let output = binary_command()
+        .arg("--no-color")
+        .current_dir(temp_dir.path())
+        .env("PATH", "")
+        .env_remove("MY_PROMPT_DIRENV_STATUS_JSON")
+        .output()
+        .expect("render with missing direnv binary");
+    let stdout = output_text(&output);
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(output.stderr.is_empty(), "{}", error_text(&output));
+    assert!(!stdout.contains("direnv"), "{stdout}");
 }
 
 #[test]

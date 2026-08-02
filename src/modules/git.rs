@@ -17,7 +17,7 @@ struct GitInfo {
     status: GitStatus,
 }
 
-pub struct GitModule;
+pub(crate) struct GitModule;
 
 impl Default for GitModule {
     fn default() -> Self {
@@ -27,7 +27,7 @@ impl Default for GitModule {
 
 impl GitModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
@@ -166,16 +166,14 @@ fn get_git_info(backend: GitBackend, current_dir: &Path) -> Option<GitInfo> {
 }
 
 impl Module for GitModule {
-    fn render(&self, context: &ModuleContext) -> crate::error::Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         use crate::style::{AnsiStyle, Color};
 
         let Ok(current_dir) = std::env::current_dir() else {
-            return Ok(None);
+            return None;
         };
 
-        let Some(info) = get_git_info(context.git_backend, &current_dir) else {
-            return Ok(None);
-        };
+        let info = get_git_info(context.git_backend, &current_dir)?;
 
         let branch = sanitize_display_text(&info.branch);
         let has_changes = info.status.contains(GitStatus::MODIFIED);
@@ -191,23 +189,23 @@ impl Module for GitModule {
 
         if context.no_color {
             if indicators.is_empty() {
-                Ok(Some(format!("[{branch}] ")))
+                Some(format!("[{branch}] "))
             } else {
-                Ok(Some(format!("[{branch}{indicators}] ")))
+                Some(format!("[{branch}{indicators}] "))
             }
         } else {
             let blue = AnsiStyle::new(Color::Blue, false);
             let red = AnsiStyle::new(Color::Red, false);
 
             if indicators.is_empty() {
-                Ok(Some(format!(
+                Some(format!(
                     "{}[{}]{} ",
                     blue.start_codes(),
                     branch,
                     AnsiStyle::RESET
-                )))
+                ))
             } else {
-                Ok(Some(format!(
+                Some(format!(
                     "{}[{}{}{}{}]{} ",
                     blue.start_codes(),
                     branch,
@@ -215,7 +213,7 @@ impl Module for GitModule {
                     indicators,
                     blue.start_codes(),
                     AnsiStyle::RESET
-                )))
+                ))
             }
         }
     }
@@ -676,7 +674,7 @@ mod tests {
 
     #[test]
     fn parser_reports_modified_and_untracked_status() {
-        let info = parse_git_status_output("## feature\n M src/lib.rs\n?? TODO.md\n")
+        let info = parse_git_status_output("## feature\n M src/main.rs\n?? TODO.md\n")
             .expect("parse combined status");
 
         assert_eq!(

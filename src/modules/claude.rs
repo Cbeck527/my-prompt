@@ -1,8 +1,7 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 
-pub struct ClaudeModule;
+pub(crate) struct ClaudeModule;
 
 impl Default for ClaudeModule {
     fn default() -> Self {
@@ -12,7 +11,7 @@ impl Default for ClaudeModule {
 
 impl ClaudeModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
@@ -24,7 +23,7 @@ impl ClaudeModule {
 /// - 1,000,000-9,999,999: one decimal (e.g., "1.0M", "1.5M")
 /// - 10,000,000+: no decimal (e.g., "10M")
 #[must_use]
-pub fn format_tokens(n: u64) -> String {
+fn format_tokens(n: u64) -> String {
     if n >= 10_000_000 {
         format!("{}M", n / 1_000_000)
     } else if n >= 1_000_000 {
@@ -43,9 +42,9 @@ pub fn format_tokens(n: u64) -> String {
 }
 
 impl Module for ClaudeModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let Some(session) = &context.claude_session else {
-            return Ok(None);
+            return None;
         };
 
         let model = sanitize_display_text(&session.model_name);
@@ -54,11 +53,11 @@ impl Module for ClaudeModule {
         let pct = session.percentage;
 
         if context.no_color {
-            Ok(Some(format!("[{model} {used}/{total} ({pct}%)]")))
+            Some(format!("[{model} {used}/{total} ({pct}%)]"))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Magenta, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}[{} {}/{} ({}%)]{}",
                 style.start_codes(),
                 model,
@@ -66,7 +65,7 @@ impl Module for ClaudeModule {
                 total,
                 pct,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -115,7 +114,7 @@ mod tests {
         let module = ClaudeModule::new();
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(result, None);
     }
 
@@ -133,7 +132,7 @@ mod tests {
             ..ModuleContext::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(result, Some("[Opus 12k/200k (6%)]".to_string()));
     }
 
@@ -151,7 +150,7 @@ mod tests {
             ..ModuleContext::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         let output = result.unwrap();
         assert!(output.contains("Sonnet"));
         assert!(output.contains("5.0k"));
@@ -174,7 +173,7 @@ mod tests {
             ..ModuleContext::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
 
         assert_eq!(
             result,

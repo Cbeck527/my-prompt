@@ -1,9 +1,8 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 use whoami::username;
 
-pub struct UsernameModule;
+pub(crate) struct UsernameModule;
 
 impl Default for UsernameModule {
     fn default() -> Self {
@@ -13,13 +12,13 @@ impl Default for UsernameModule {
 
 impl UsernameModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
 
 impl Module for UsernameModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let actual_username = username().unwrap_or(String::from("unknown"));
         let display_name = match actual_username.as_str() {
             "christopher.becker" => "chris",
@@ -28,16 +27,16 @@ impl Module for UsernameModule {
         let display_name = sanitize_display_text(display_name);
 
         if context.no_color {
-            Ok(Some(format!("{display_name} ")))
+            Some(format!("{display_name} "))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Green, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}{}{} ",
                 style.start_codes(),
                 display_name,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -51,7 +50,7 @@ mod tests {
         let module = UsernameModule::new();
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some());
 
         let output = result.unwrap();

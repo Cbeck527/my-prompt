@@ -2,10 +2,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils;
-pub struct DirenvModule;
+pub(crate) struct DirenvModule;
 
 impl Default for DirenvModule {
     fn default() -> Self {
@@ -15,7 +14,7 @@ impl Default for DirenvModule {
 
 impl DirenvModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 
@@ -68,12 +67,9 @@ enum DirenvState {
 }
 
 impl Module for DirenvModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let direnv_file = utils::find_upward(".envrc");
-        Ok(Self::render_with_direnv_file(
-            direnv_file.as_deref(),
-            context,
-        ))
+        Self::render_with_direnv_file(direnv_file.as_deref(), context)
     }
 }
 

@@ -2,11 +2,15 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use anyhow::Result;
 use clap::Parser;
-use my_prompt::module_trait::{self, GitBackend};
-use my_prompt::prompt;
 use serde::Deserialize;
+
+mod module_trait;
+mod modules;
+mod prompt;
+mod style;
+
+use module_trait::GitBackend;
 
 const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
 
@@ -97,22 +101,14 @@ fn main() -> ExitCode {
         direnv_status_json,
     };
 
-    let result = if cli.bench {
+    let output = if cli.bench {
         handle_bench(modules, &context, process_start, rayon_threads)
     } else {
         handle_format(modules, cli.debug, &context, rayon_threads)
     };
 
-    match result {
-        Ok(output) => {
-            print!("{output}");
-            ExitCode::SUCCESS
-        }
-        Err(e) => {
-            eprintln!("Error: {e}");
-            ExitCode::FAILURE
-        }
-    }
+    print!("{output}");
+    ExitCode::SUCCESS
 }
 
 fn parse_claude_stdin() -> Option<module_trait::ClaudeSession> {
@@ -157,19 +153,19 @@ fn handle_format(
     debug: bool,
     context: &module_trait::ModuleContext,
     rayon_threads: usize,
-) -> Result<String> {
+) -> String {
     if debug {
         let start = Instant::now();
-        let output = prompt::render_prompt(modules, context)?;
+        let output = prompt::render_prompt(modules, context);
         let elapsed = start.elapsed();
 
         eprintln!("Modules: {modules:?}");
         eprintln!("Rayon threads: {rayon_threads}");
         eprintln!("Execution time: {:.2}ms", elapsed.as_secs_f64() * 1000.0);
 
-        Ok(output)
+        output
     } else {
-        prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))
+        prompt::render_prompt(modules, context)
     }
 }
 
@@ -178,9 +174,9 @@ fn handle_bench(
     context: &module_trait::ModuleContext,
     process_start: Instant,
     rayon_threads: usize,
-) -> Result<String> {
+) -> String {
     let first_render_start = Instant::now();
-    let _ = prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))?;
+    let _ = prompt::render_prompt(modules, context);
     let cold_start = process_start.elapsed();
     let first_render = first_render_start.elapsed();
 
@@ -188,7 +184,7 @@ fn handle_bench(
 
     for _ in 0..100 {
         let start = Instant::now();
-        let _ = prompt::render_prompt(modules, context).map_err(|e| anyhow::anyhow!(e))?;
+        let _ = prompt::render_prompt(modules, context);
         times.push(start.elapsed());
     }
 
@@ -197,12 +193,12 @@ fn handle_bench(
     let max = times[99];
     let avg: std::time::Duration = times.iter().sum::<std::time::Duration>() / 100;
     let p99 = times[98];
-    let has_direnv_file = my_prompt::modules::utils::find_upward(".envrc").is_some();
+    let has_direnv_file = modules::utils::find_upward(".envrc").is_some();
     let direnv_lookup =
         direnv_benchmark_label(has_direnv_file, context.direnv_status_json.is_some());
     let git_backend = context.git_backend;
 
-    Ok(format!(
+    format!(
         "Using backend: {git_backend:?}\nRayon threads: {rayon_threads}\nDirenv lookup: {direnv_lookup}\nCold start: {:.2}ms (process start to first render; first render {:.2}ms)\n100 warm runs: min={:.2}ms avg={:.2}ms max={:.2}ms p99={:.2}ms\n",
         cold_start.as_secs_f64() * 1000.0,
         first_render.as_secs_f64() * 1000.0,
@@ -210,7 +206,7 @@ fn handle_bench(
         avg.as_secs_f64() * 1000.0,
         max.as_secs_f64() * 1000.0,
         p99.as_secs_f64() * 1000.0
-    ))
+    )
 }
 
 fn direnv_benchmark_label(has_direnv_file: bool, has_cached_status: bool) -> &'static str {

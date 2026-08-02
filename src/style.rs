@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)] // I might use some of these colors in the future...
-pub enum Color {
+pub(crate) enum Color {
     Black,
     Red,
     Green,
@@ -20,7 +20,7 @@ pub enum Color {
 }
 
 impl Color {
-    pub(crate) fn push_ansi_code(&self, buf: &mut String) {
+    fn push_ansi_code(&self, buf: &mut String) {
         match self {
             Color::Black => buf.push_str("\x1b[30m"),
             Color::Red => buf.push_str("\x1b[31m"),
@@ -43,21 +43,21 @@ impl Color {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AnsiStyle {
-    pub color: Color,
-    pub bold: bool,
+pub(crate) struct AnsiStyle {
+    color: Color,
+    bold: bool,
 }
 
 impl AnsiStyle {
-    pub const RESET: &'static str = "\x1b[0m";
+    pub(crate) const RESET: &'static str = "\x1b[0m";
 
     #[must_use]
-    pub fn new(color: Color, bold: bool) -> Self {
+    pub(crate) fn new(color: Color, bold: bool) -> Self {
         Self { color, bold }
     }
 
     #[must_use]
-    pub fn start_codes(&self) -> String {
+    pub(crate) fn start_codes(&self) -> String {
         let mut buf = String::new();
         self.color.push_ansi_code(&mut buf);
         if self.bold {

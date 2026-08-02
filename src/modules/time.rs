@@ -1,8 +1,7 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 use chrono::Local;
 
-pub struct TimeModule;
+pub(crate) struct TimeModule;
 
 impl Default for TimeModule {
     fn default() -> Self {
@@ -11,21 +10,21 @@ impl Default for TimeModule {
 }
 
 impl Module for TimeModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let now = Local::now();
         let formatted = now.format("%I:%M%p").to_string();
 
         if context.no_color {
-            Ok(Some(format!("[{formatted}] ")))
+            Some(format!("[{formatted}] "))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Yellow, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}[{}]{} ",
                 style.start_codes(),
                 formatted,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -44,7 +43,7 @@ mod tests {
             ..ModuleContext::default()
         };
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some());
         let output = result.unwrap();
 
@@ -61,7 +60,7 @@ mod tests {
         let module = TimeModule;
         let context = ModuleContext::default();
 
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some());
         let output = result.unwrap();
 

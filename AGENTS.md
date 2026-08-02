@@ -19,17 +19,18 @@ abstractions, and keep each change focused on the requested behavior.
 
 ## Project Structure & Module Organization
 
-`my-prompt` is a Rust library and CLI. The executable entry point is
-`src/main.rs`; reusable prompt rendering and public types live in `src/lib.rs`,
-`src/prompt.rs`, and `src/module_trait.rs`. Individual prompt components are
-organized under `src/modules/` (for example, `git.rs`, `path.rs`, and
-`claude.rs`). Integration tests are in `tests/`, with focused unit tests kept
-next to their implementation behind `#[cfg(test)]`. The Fish setup helper is
-`etc/my-prompt.fish`; `README.md` documents user-facing setup and behavior.
+`my-prompt` is a Rust CLI with no library target. The executable entry point is
+`src/main.rs`, which declares the internal prompt modules. Reusable rendering
+logic lives in `src/prompt.rs` and `src/module_trait.rs`; individual prompt
+components are organized under `src/modules/` (for example, `git.rs`,
+`path.rs`, and `claude.rs`). Black-box CLI tests are in `tests/`, with focused
+unit tests kept next to their implementation behind `#[cfg(test)]`. The Fish
+setup helper is `etc/my-prompt.fish`; `README.md` documents user-facing setup
+and behavior.
 
 ## Build, Test, and Development Commands
 
-- `cargo build --locked --verbose` — compile the debug binary and library.
+- `cargo build --locked --verbose` — compile the debug binary.
 - `cargo build --release --locked --verbose` — build the optimized, stripped release binary.
 - `cargo test --locked --verbose` — run unit and integration tests.
 - `cargo fmt -- --check` — verify standard Rust formatting without changing files.
@@ -56,9 +57,10 @@ silencing lints broadly.
 
 ## Testing Guidelines
 
-Name tests after observable behavior, such as `test_render_prompt_full`.
+Name tests after observable behavior, such as
+`render_prompt_returns_output_for_default_format`.
 Add unit tests beside module logic and integration tests in `tests/` when
-checking public API behavior. This project is sufficiently simple that tests
+checking CLI behavior. This project is sufficiently simple that tests
 should stay proportional to the change; do not pursue coverage or elaborate
 harnesses for their own sake. For a straightforward CLI or prompt-formatting
 change, it may be faster and clearer to build or run the binary and inspect

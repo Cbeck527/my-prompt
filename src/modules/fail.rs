@@ -1,7 +1,6 @@
-use crate::error::Result;
 use crate::module_trait::{Module, ModuleContext};
 
-pub struct FailModule;
+pub(crate) struct FailModule;
 
 impl Default for FailModule {
     fn default() -> Self {
@@ -11,31 +10,31 @@ impl Default for FailModule {
 
 impl FailModule {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
 
 impl Module for FailModule {
-    fn render(&self, context: &ModuleContext) -> Result<Option<String>> {
+    fn render(&self, context: &ModuleContext) -> Option<String> {
         let exit_code = context.exit_code.unwrap_or(0);
         if exit_code == 0 {
-            return Ok(None);
+            return None;
         }
 
         let text = format!("exit: {exit_code}");
 
         if context.no_color {
-            Ok(Some(format!("[{text}]\n")))
+            Some(format!("[{text}]\n"))
         } else {
             use crate::style::{AnsiStyle, Color};
             let style = AnsiStyle::new(Color::Red, false);
-            Ok(Some(format!(
+            Some(format!(
                 "{}[{}]{}\n",
                 style.start_codes(),
                 text,
                 AnsiStyle::RESET
-            )))
+            ))
         }
     }
 }
@@ -51,7 +50,7 @@ mod tests {
             exit_code: Some(0),
             ..ModuleContext::default()
         };
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(result, None);
     }
 
@@ -62,7 +61,7 @@ mod tests {
             exit_code: Some(42),
             ..ModuleContext::default()
         };
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert!(result.is_some());
         let output = result.unwrap();
         assert!(output.contains("exit: 42"));
@@ -78,7 +77,7 @@ mod tests {
             no_color: true,
             ..ModuleContext::default()
         };
-        let result = module.render(&context).unwrap();
+        let result = module.render(&context);
         assert_eq!(result, Some("[exit: 1]\n".to_string()));
     }
 }

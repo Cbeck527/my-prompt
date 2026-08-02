@@ -92,12 +92,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.103"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
-
-[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1623,9 +1617,8 @@ dependencies = [
 
 [[package]]
 name = "my-prompt"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
- "anyhow",
  "bitflags 2.13.0",
  "chrono",
  "clap",
@@ -1638,7 +1631,6 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror",
  "whoami",
 ]
 
