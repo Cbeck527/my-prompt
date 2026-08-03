@@ -29,6 +29,7 @@
               cargo-audit
               cargo-deny
               cargo-edit
+              cargo-release
               fish
               git
               stdenv.cc
