@@ -117,6 +117,10 @@ argument errors do not start worker threads.
 
 ## Development with Nix
 
+The minimum supported Rust version is 1.96. CI verifies Rust 1.96 alongside the
+current stable toolchain. Raise the minimum only when required by the project or
+its dependencies.
+
 Enter the development shell to get Rust, Cargo, formatting and linting tools,
 Cargo audit, Git, and Fish:
 

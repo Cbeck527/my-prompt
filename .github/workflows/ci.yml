@@ -90,19 +90,19 @@ jobs:
       - name: Check dependency policy
         run: nix develop -c cargo deny --locked check
 
-  current-toolchain:
-    name: Check current Rust toolchain
+  minimum-supported-rust:
+    name: Check minimum supported Rust 1.96
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      - name: Install Rust
+      - name: Install Rust 1.96
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master
         with:
-          toolchain: stable
+          toolchain: 1.96.0
 
-      - name: Check current Rust toolchain
-        run: cargo check --verbose
+      - name: Check minimum supported Rust
+        run: cargo check --all-targets --locked --verbose
 
   # TODO: fix benchmarks
   # bench:

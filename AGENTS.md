@@ -30,6 +30,10 @@ and behavior.
 
 ## Build, Test, and Development Commands
 
+The minimum supported Rust version is 1.96. CI verifies Rust 1.96 alongside the
+current stable toolchain. Raise `package.rust-version` only when required by the
+project or its dependencies, and update this guidance and `README.md` together.
+
 - `cargo build --locked --verbose` — compile the debug binary.
 - `cargo build --release --locked --verbose` — build the optimized, stripped release binary.
 - `cargo test --locked --verbose` — run unit and integration tests.

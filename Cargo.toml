@@ -2,6 +2,7 @@
 name = "my-prompt"
 version = "0.0.9"
 edition = "2024"
+rust-version = "1.96"
 publish = false
 authors = ["Chris Becker <chris@becker.am>"]
 description = "My ultra-fast shell prompt based on `prmt` by Ivan Zakharchanka"
