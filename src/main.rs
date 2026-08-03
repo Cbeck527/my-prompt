@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use serde::Deserialize;
 
 mod module_trait;
@@ -13,33 +13,80 @@ mod style;
 use module_trait::GitBackend;
 
 const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
+const FISH_INIT: &str = include_str!("init/my-prompt.fish");
 
 #[derive(Parser)]
 #[command(name = "my-prompt")]
 #[command(about = "This is my prompt. There are many like it, but this one is mine.")]
 #[command(version)]
-#[allow(clippy::struct_excessive_bools)]
+#[command(args_conflicts_with_subcommands = true)]
 struct Cli {
-    #[arg(long)]
-    debug: bool,
+    #[command(flatten)]
+    prompt: PromptArgs,
 
-    #[arg(long)]
-    bench: bool,
+    #[command(subcommand)]
+    command: Option<Command>,
+}
 
-    #[arg(long)]
-    code: Option<i32>,
-
+#[derive(Args)]
+struct CommonRenderArgs {
+    /// Git implementation to use for repository information.
     #[arg(long, value_enum, default_value = "binary")]
     git_backend: GitBackend,
 
+    /// Disable ANSI color output.
     #[arg(long)]
     no_color: bool,
+}
 
+#[derive(Args)]
+struct PromptRenderArgs {
+    #[command(flatten)]
+    common: CommonRenderArgs,
+
+    /// Exit code from the previously executed command.
+    #[arg(long)]
+    code: Option<i32>,
+
+    /// Render Fish's transient prompt.
     #[arg(long, alias = "transient")]
     final_rendering: bool,
+}
 
+#[derive(Args)]
+struct PromptArgs {
+    #[command(flatten)]
+    render: PromptRenderArgs,
+
+    /// Print module and timing diagnostics to standard error.
     #[arg(long)]
-    claude: bool,
+    debug: bool,
+}
+
+#[derive(Args)]
+struct BenchArgs {
+    #[command(flatten)]
+    render: PromptRenderArgs,
+}
+
+#[derive(Args)]
+struct ClaudeArgs {
+    #[command(flatten)]
+    common: CommonRenderArgs,
+
+    /// Print module and timing diagnostics to standard error.
+    #[arg(long)]
+    debug: bool,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Benchmark regular or transient prompt rendering.
+    Bench(BenchArgs),
+    /// Render a Claude Code statusline from JSON on standard input.
+    Claude(ClaudeArgs),
+    /// Print Fish shell initialization code.
+    Init,
 }
 
 #[derive(Deserialize)]
@@ -71,44 +118,106 @@ struct ClaudeContextWindowCurrentUsage {
 fn main() -> ExitCode {
     let process_start = Instant::now();
 
-    let cli = Cli::parse();
+    let Cli { prompt, command } = Cli::parse();
 
-    let (modules, claude_session) = if cli.claude {
-        let session = parse_claude_stdin();
-        (prompt::CLAUDE_FORMAT, session)
-    } else if cli.final_rendering {
-        (prompt::TRANSIENT_FORMAT, None)
-    } else {
-        (prompt::PROMPT_FORMAT, None)
-    };
-
-    let rayon_threads = match prompt::init_thread_pool() {
-        Ok(thread_count) => thread_count,
-        Err(error) => {
-            eprintln!("Error: failed to initialize Rayon thread pool: {error}");
-            return ExitCode::FAILURE;
+    match command {
+        None => run_prompt(&prompt),
+        Some(Command::Bench(args)) => run_bench(&args, process_start),
+        Some(Command::Claude(args)) => run_claude(&args),
+        Some(Command::Init) => {
+            print!("{FISH_INIT}");
+            ExitCode::SUCCESS
         }
-    };
+    }
+}
 
-    let direnv_status_json = std::env::var(DIRENV_STATUS_JSON_ENV)
-        .ok()
-        .filter(|status_json| !status_json.is_empty());
-    let context = module_trait::ModuleContext {
-        exit_code: cli.code,
-        no_color: cli.no_color || std::env::var("NO_COLOR").is_ok(),
+fn run_prompt(args: &PromptArgs) -> ExitCode {
+    let modules = prompt_modules(args.render.final_rendering);
+
+    run_format_command(
+        modules,
+        args.debug,
+        args.render.code,
+        None,
+        &args.render.common,
+    )
+}
+
+fn run_claude(args: &ClaudeArgs) -> ExitCode {
+    let claude_session = parse_claude_stdin();
+
+    run_format_command(
+        prompt::CLAUDE_FORMAT,
+        args.debug,
+        None,
         claude_session,
-        git_backend: cli.git_backend,
-        direnv_status_json,
-    };
+        &args.common,
+    )
+}
 
-    let output = if cli.bench {
-        handle_bench(modules, &context, process_start, rayon_threads)
-    } else {
-        handle_format(modules, cli.debug, &context, rayon_threads)
+fn run_bench(args: &BenchArgs, process_start: Instant) -> ExitCode {
+    let Some(rayon_threads) = initialize_thread_pool() else {
+        return ExitCode::FAILURE;
     };
+    let modules = prompt_modules(args.render.final_rendering);
+    let context = module_context(&args.render.common, args.render.code, None);
+    let output = handle_bench(modules, &context, process_start, rayon_threads);
 
     print!("{output}");
     ExitCode::SUCCESS
+}
+
+fn run_format_command(
+    modules: &[prompt::PromptModule],
+    debug: bool,
+    exit_code: Option<i32>,
+    claude_session: Option<module_trait::ClaudeSession>,
+    args: &CommonRenderArgs,
+) -> ExitCode {
+    let Some(rayon_threads) = initialize_thread_pool() else {
+        return ExitCode::FAILURE;
+    };
+    let context = module_context(args, exit_code, claude_session);
+    let output = handle_format(modules, debug, &context, rayon_threads);
+
+    print!("{output}");
+    ExitCode::SUCCESS
+}
+
+fn initialize_thread_pool() -> Option<usize> {
+    match prompt::init_thread_pool() {
+        Ok(thread_count) => Some(thread_count),
+        Err(error) => {
+            eprintln!("Error: failed to initialize Rayon thread pool: {error}");
+            None
+        }
+    }
+}
+
+fn module_context(
+    args: &CommonRenderArgs,
+    exit_code: Option<i32>,
+    claude_session: Option<module_trait::ClaudeSession>,
+) -> module_trait::ModuleContext {
+    let direnv_status_json = std::env::var(DIRENV_STATUS_JSON_ENV)
+        .ok()
+        .filter(|status_json| !status_json.is_empty());
+
+    module_trait::ModuleContext {
+        exit_code,
+        no_color: args.no_color || std::env::var("NO_COLOR").is_ok(),
+        claude_session,
+        git_backend: args.git_backend,
+        direnv_status_json,
+    }
+}
+
+fn prompt_modules(final_rendering: bool) -> &'static [prompt::PromptModule] {
+    if final_rendering {
+        prompt::TRANSIENT_FORMAT
+    } else {
+        prompt::PROMPT_FORMAT
+    }
 }
 
 fn parse_claude_stdin() -> Option<module_trait::ClaudeSession> {

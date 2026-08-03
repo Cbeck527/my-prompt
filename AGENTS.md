@@ -25,7 +25,7 @@ logic lives in `src/prompt.rs` and `src/module_trait.rs`; individual prompt
 components are organized under `src/modules/` (for example, `git.rs`,
 `path.rs`, and `claude.rs`). Black-box CLI tests are in `tests/`, with focused
 unit tests kept next to their implementation behind `#[cfg(test)]`. The Fish
-setup helper is `etc/my-prompt.fish`; `README.md` documents user-facing setup
+setup helper is `src/init/my-prompt.fish`; `README.md` documents user-facing setup
 and behavior.
 
 ## Build, Test, and Development Commands

@@ -18,7 +18,7 @@ the process from starting its renderer can still exit unsuccessfully.
 
 ## Claude Code Statusline
 
-`my-prompt` can be used as a statusline for [Claude Code](https://code.claude.com/docs/en/statusline). The `--claude` flag produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
+`my-prompt` can be used as a statusline for [Claude Code](https://code.claude.com/docs/en/statusline). The `claude` subcommand produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
 
 ### Setup
 
@@ -28,7 +28,7 @@ Add the following to your Claude Code settings file (`~/.claude/settings.json`):
 {
   "statusLine": {
     "type": "command",
-    "command": "/absolute/path/to/my-prompt --claude"
+    "command": "/absolute/path/to/my-prompt claude"
   }
 }
 ```
@@ -59,11 +59,10 @@ Token counts are formatted for readability:
 ## Fish shell prompt
 
 The shipped Fish helper defines `fish_prompt`. It requires `my-prompt` to be
-available on your `PATH`. Add the following to `~/.config/fish/config.fish`,
-replacing the example path with the location of this repository:
+available on your `PATH`. Add the following to `~/.config/fish/config.fish`:
 
 ```fish
-source /absolute/path/to/my-prompt/etc/my-prompt.fish
+my-prompt init | source
 ```
 
 For example, after installing the binary with `cargo install --path .`, ensure
@@ -99,8 +98,9 @@ status information, the Git segment is omitted.
 
 The `gix` backend avoids the runtime Git dependency, but untracked-file scans
 may remain slower than the `binary` backend in large repositories. Use
-`--bench --git-backend binary` and `--bench --git-backend gix` to compare them
-in a representative working tree.
+`my-prompt bench --git-backend binary` and
+`my-prompt bench --git-backend gix` to compare them in a representative
+working tree.
 
 Upstream gitoxide work may improve this in a future `gix` release: the
 [UNTR decoder fix](https://github.com/GitoxideLabs/gitoxide/pull/2591) has
@@ -154,13 +154,13 @@ Use the release binary for representative process measurements:
 
 ```bash
 cargo build --release --locked
-cargo run --release -- --bench --no-color
+cargo run --release -- bench --no-color
 ```
 
-`--bench` reports cold startup from the beginning of `main` through the first
+`bench` reports cold startup from the beginning of `main` through the first
 render, followed by 100 warm render timings. The cold metric includes CLI
-parsing, Claude input parsing when applicable, and Rayon initialization; it
-does not include the operating system's process launch time.
+parsing and Rayon initialization; it does not include the operating system's
+process launch time.
 
 The output labels the direnv path as `external status`, `shell cache`, or
 `no .envrc`. Run all three scenarios from Fish to compare them:
@@ -171,19 +171,19 @@ set prompt_binary (pwd)/target/release/my-prompt
 # External lookup from a directory containing .envrc.
 begin
     set -lx MY_PROMPT_DIRENV_STATUS_JSON ""
-    $prompt_binary --bench --no-color
+    $prompt_binary bench --no-color
 end
 
 # Cached lookup from the same directory.
 begin
     set -lx MY_PROMPT_DIRENV_STATUS_JSON (direnv status --json | string collect)
-    $prompt_binary --bench --no-color
+    $prompt_binary bench --no-color
 end
 
 # Directory without .envrc.
 set empty_dir (mktemp -d)
 pushd $empty_dir
-$prompt_binary --bench --no-color
+$prompt_binary bench --no-color
 popd
 rmdir $empty_dir
 ```

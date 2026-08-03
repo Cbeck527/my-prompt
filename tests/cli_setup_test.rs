@@ -57,7 +57,7 @@ fn error_text(output: &Output) -> String {
 
 fn run_claude_mode(input: &str, current_dir: &Path) -> Output {
     let mut child = binary_command()
-        .args(["--claude", "--no-color"])
+        .args(["claude", "--no-color"])
         .current_dir(current_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -78,7 +78,7 @@ fn run_claude_mode(input: &str, current_dir: &Path) -> Output {
 fn run_benchmark_with_threads(thread_count: &str) -> Output {
     let temp_dir = tempfile::tempdir().expect("create temp dir");
     binary_command()
-        .args(["--bench", "--final-rendering", "--no-color"])
+        .args(["bench", "--final-rendering", "--no-color"])
         .current_dir(temp_dir.path())
         .env("RAYON_NUM_THREADS", thread_count)
         .output()
@@ -173,7 +173,7 @@ fn readme_documents_claude_code_command_configuration() {
 
     assert!(readme.contains("\"statusLine\""));
     assert!(readme.contains("\"type\": \"command\""));
-    assert!(readme.contains("\"command\": \"/absolute/path/to/my-prompt --claude\""));
+    assert!(readme.contains("\"command\": \"/absolute/path/to/my-prompt claude\""));
     assert!(readme.contains("JSON on standard input"));
 }
 
@@ -182,7 +182,7 @@ fn readme_documents_fish_setup_with_path_requirement() {
     let readme = include_str!("../README.md");
 
     assert!(readme.contains("## Fish shell prompt"));
-    assert!(readme.contains("source /absolute/path/to/my-prompt/etc/my-prompt.fish"));
+    assert!(readme.contains("my-prompt init | source"));
     assert!(readme.contains("available on your `PATH`"));
 }
 
@@ -198,9 +198,69 @@ fn readme_documents_cli_only_support_boundary() {
 #[test]
 fn help_exits_successfully_and_displays_usage() {
     let output = binary_command().arg("--help").output().expect("run --help");
+    let stdout = output_text(&output);
 
     assert!(output.status.success(), "{}", error_text(&output));
-    assert!(output_text(&output).contains("Usage: my-prompt"));
+    assert!(stdout.contains("Usage: my-prompt"), "{stdout}");
+    for command in ["bench", "claude", "init"] {
+        assert!(stdout.contains(command), "help omits {command}: {stdout}");
+    }
+}
+
+#[test]
+fn init_prints_the_shipped_fish_helper() {
+    let output = binary_command().arg("init").output().expect("run init");
+
+    assert!(output.status.success(), "{}", error_text(&output));
+    assert!(output.stderr.is_empty(), "{}", error_text(&output));
+    assert_eq!(
+        output.stdout.as_slice(),
+        include_bytes!("../src/init/my-prompt.fish")
+    );
+}
+
+#[test]
+fn init_rejects_render_options() {
+    let output = binary_command()
+        .args(["init", "--no-color"])
+        .output()
+        .expect("run init with render option");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(error_text(&output).contains("unexpected argument '--no-color'"));
+}
+
+#[test]
+fn legacy_bench_flag_is_rejected() {
+    let output = binary_command()
+        .arg("--bench")
+        .output()
+        .expect("run removed benchmark flag");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(error_text(&output).contains("unexpected argument '--bench'"));
+}
+
+#[test]
+fn legacy_claude_flag_is_rejected() {
+    let output = binary_command()
+        .arg("--claude")
+        .output()
+        .expect("run removed Claude flag");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(error_text(&output).contains("unexpected argument '--claude'"));
+}
+
+#[test]
+fn root_render_options_cannot_precede_a_subcommand() {
+    let output = binary_command()
+        .args(["--no-color", "bench"])
+        .output()
+        .expect("run subcommand after root render option");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(error_text(&output).contains("cannot be used with '--no-color'"));
 }
 
 #[test]
@@ -296,13 +356,12 @@ fn code_option_renders_the_previous_exit_code() {
 }
 
 #[test]
-fn default_rendering_exits_successfully_with_output() {
+fn no_arguments_render_the_default_prompt() {
     let temp_dir = tempfile::tempdir().expect("create temp dir");
     let output = binary_command()
-        .arg("--no-color")
         .current_dir(temp_dir.path())
         .output()
-        .expect("render prompt through CLI");
+        .expect("render prompt without arguments");
 
     assert!(output.status.success(), "{}", error_text(&output));
     assert!(output.stderr.is_empty(), "{}", error_text(&output));
@@ -458,7 +517,7 @@ printf '{"state":{"foundRC":{"path":"%s","allowed":%s},"loadedRC":null}}\n' \
     let path =
         env::join_paths(std::iter::once(fake_bin.clone()).chain(env::split_paths(&inherited_path)))
             .expect("join test PATH entries");
-    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("etc/my-prompt.fish");
+    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/init/my-prompt.fish");
     let output = Command::new("fish")
         .args([
             "--no-config",
@@ -501,8 +560,8 @@ printf '{"state":{"foundRC":{"path":"%s","allowed":%s},"loadedRC":null}}\n' \
 }
 
 #[test]
-fn fish_helper_is_syntax_valid_and_runs_in_a_clean_fish_process() {
-    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("etc/my-prompt.fish");
+fn fish_helper_is_syntax_valid_and_init_output_runs_in_a_clean_fish_process() {
+    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/init/my-prompt.fish");
     let syntax_output = Command::new("fish")
         .arg("-n")
         .arg(&helper)
@@ -521,10 +580,9 @@ fn fish_helper_is_syntax_valid_and_runs_in_a_clean_fish_process() {
             "--no-config",
             "--private",
             "-c",
-            "source $MY_PROMPT_FISH_HELPER; fish_prompt",
+            "my-prompt init | source; fish_prompt",
         ])
         .current_dir(temp_dir.path())
-        .env("MY_PROMPT_FISH_HELPER", &helper)
         .env("PATH", path_with_binary_directory())
         .output()
         .expect("run Fish prompt helper");
