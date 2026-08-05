@@ -24,7 +24,7 @@ staging="$work_dir/$directory"
 
 mkdir "$staging"
 install -m 0755 "$binary" "$staging/my-prompt"
-install -m 0644 LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.json "$staging/"
+install -m 0644 LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.html "$staging/"
 tar -C "$work_dir" -czf "$output_dir/$archive" "$directory"
 
 printf '%s\n' "$output_dir/$archive"

@@ -108,12 +108,8 @@ jobs:
         run: |
           set -euo pipefail
           generated=$(mktemp)
-          nix develop -c cargo about generate \
-            --format json \
-            --locked \
-            --fail \
-            --output-file "$generated"
-          diff -u THIRD_PARTY_LICENSES.json "$generated"
+          nix develop -c scripts/generate-third-party-licenses.sh "$generated"
+          diff -u THIRD_PARTY_LICENSES.html "$generated"
 
   minimum-supported-rust:
     name: Minimum supported Rust 1.96

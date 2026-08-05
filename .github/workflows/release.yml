@@ -380,7 +380,7 @@ jobs:
             expected_entries=$(printf '%s\n' \
               "$directory/" \
               "$directory/LICENSE" \
-              "$directory/THIRD_PARTY_LICENSES.json" \
+              "$directory/THIRD_PARTY_LICENSES.html" \
               "$directory/THIRD_PARTY_NOTICES.md" \
               "$directory/my-prompt" | LC_ALL=C sort)
             if [ "$actual_entries" != "$expected_entries" ]; then
@@ -401,7 +401,7 @@ jobs:
             test -x "$binary"
             cmp LICENSE "$extraction/$directory/LICENSE"
             cmp THIRD_PARTY_NOTICES.md "$extraction/$directory/THIRD_PARTY_NOTICES.md"
-            cmp THIRD_PARTY_LICENSES.json "$extraction/$directory/THIRD_PARTY_LICENSES.json"
+            cmp THIRD_PARTY_LICENSES.html "$extraction/$directory/THIRD_PARTY_LICENSES.html"
 
             if [ "$target" != aarch64-apple-darwin ]; then
               "$binary" --version | grep -Fx "my-prompt ${RELEASE_TAG#v}"

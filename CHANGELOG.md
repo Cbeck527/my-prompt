@@ -4,7 +4,25 @@ All notable changes are documented here. This project follows Semantic
 Versioning while remaining pre-1.0, so breaking interface changes increment the
 minor version.
 
-## [0.2.0] - Unreleased
+## [Unreleased]
+
+### Fixed
+
+- Replaced machine-specific raw dependency metadata with a reproducible,
+  human-readable third-party license report.
+
+### Changed
+
+- **Breaking:** release archives contain `THIRD_PARTY_LICENSES.html` instead of
+  `THIRD_PARTY_LICENSES.json`.
+
+## [0.2.1] - 2026-08-05
+
+### Changed
+
+- Refreshed dependencies and removed a redundant Fish setup integration test.
+
+## [0.2.0] - 2026-08-05
 
 First supported public release.
 
@@ -37,5 +55,7 @@ First supported public release.
 
 Private milestone before the supported public release.
 
-[0.2.0]: https://github.com/cbeck527/my-prompt/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cbeck527/my-prompt/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/cbeck527/my-prompt/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/cbeck527/my-prompt/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cbeck527/my-prompt/releases/tag/v0.1.0

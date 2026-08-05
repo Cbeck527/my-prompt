@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>my-prompt third-party licenses</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, sans-serif;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 72rem;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border-bottom: 1px solid currentColor;
+      padding: 0.4rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    pre {
+      border: 1px solid currentColor;
+      max-height: 24rem;
+      overflow: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>my-prompt third-party licenses</h1>
+    <p>Generated from the locked Rust dependency graph with cargo-about.</p>
+
+    <h2>Components</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Crate</th>
+          <th>Version</th>
+          <th>License expression</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each crates}}
+        <tr>
+          <td><a href="{{#if package.repository}}{{package.repository}}{{else}}https://crates.io/crates/{{package.name}}{{/if}}">{{package.name}}</a></td>
+          <td>{{package.version}}</td>
+          <td>{{license}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <h2>License texts</h2>
+    {{#each licenses}}
+    <section>
+      <h3>{{name}}</h3>
+      <p>Used by:</p>
+      <ul>
+        {{#each used_by}}
+        <li><a href="{{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}">{{crate.name}} {{crate.version}}</a></li>
+        {{/each}}
+      </ul>
+      <pre>{{text}}</pre>
+    </section>
+    {{/each}}
+  </main>
+</body>
+</html>
