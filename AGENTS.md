@@ -83,6 +83,11 @@ contain the binary, `LICENSE`, `THIRD_PARTY_NOTICES.md`, and
 notarized. Published archives require checksums. Releases from a public
 repository also require GitHub build provenance.
 
+The macOS release job reads these repository secrets:
+`APPLE_DEVELOPER_ID_CERT_P12_BASE64`,
+`APPLE_DEVELOPER_ID_CERT_PASSWORD`, `APPLE_NOTARY_API_KEY_P8_BASE64`,
+`APPLE_NOTARY_KEY_ID`, and `APPLE_NOTARY_ISSUER_ID`.
+
 Do not commit `target/`, `.direnv/`, generated binaries, credentials, signing
 material, or local environment files.
 

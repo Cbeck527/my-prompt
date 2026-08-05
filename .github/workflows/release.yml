@@ -164,7 +164,6 @@ jobs:
     needs: [version-parity, quality-gate]
     runs-on: macos-15
     timeout-minutes: 45
-    environment: release
     env:
       RELEASE_TAG: ${{ needs.version-parity.outputs.release_tag }}
       TARGET: aarch64-apple-darwin

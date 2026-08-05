@@ -16,6 +16,8 @@ minor version.
   private releases do not require GitHub Enterprise Cloud.
 - Made release candidates validate the assembled archives and checksums without
   publishing them.
+- Used repository secrets for Apple signing so private repositories on GitHub
+  Free can release.
 
 ### Changed
 
