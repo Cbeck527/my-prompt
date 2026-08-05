@@ -18,6 +18,8 @@ minor version.
   publishing them.
 - Used repository secrets for Apple signing so private repositories on GitHub
   Free can release.
+- Added the temporary signing keychain to `codesign`'s search list before
+  signing macOS release binaries.
 
 ### Changed
 

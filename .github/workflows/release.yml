@@ -222,6 +222,14 @@ jobs:
             -k "$keychain_password" \
             "$keychain"
 
+          keychains=("$keychain")
+          while IFS= read -r existing_keychain; do
+            existing_keychain=${existing_keychain#*\"}
+            existing_keychain=${existing_keychain%\"*}
+            keychains+=("$existing_keychain")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${keychains[@]}"
+
           identities=$(security find-identity -v -p codesigning "$keychain" |
             sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p')
           identity_count=$(printf '%s\n' "$identities" | sed '/^$/d' | wc -l | tr -d ' ')
