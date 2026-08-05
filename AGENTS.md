@@ -80,7 +80,8 @@ Tagged `v*` pushes publish versioned archives for Linux x86_64 GNU, Linux x86_64
 musl, and Apple Silicon macOS. Intel macOS is unsupported. Release archives must
 contain the binary, `LICENSE`, `THIRD_PARTY_NOTICES.md`, and
 `THIRD_PARTY_LICENSES.html`. macOS binaries must be Developer ID signed and
-notarized. Published archives require checksums and GitHub build provenance.
+notarized. Published archives require checksums. Releases from a public
+repository also require GitHub build provenance.
 
 Do not commit `target/`, `.direnv/`, generated binaries, credentials, signing
 material, or local environment files.
