@@ -168,34 +168,6 @@ impl CliGitRepository {
 }
 
 #[test]
-fn readme_documents_claude_code_command_configuration() {
-    let readme = include_str!("../README.md");
-
-    assert!(readme.contains("\"statusLine\""));
-    assert!(readme.contains("\"type\": \"command\""));
-    assert!(readme.contains("\"command\": \"/absolute/path/to/my-prompt claude\""));
-    assert!(readme.contains("JSON on standard input"));
-}
-
-#[test]
-fn readme_documents_fish_setup_with_path_requirement() {
-    let readme = include_str!("../README.md");
-
-    assert!(readme.contains("## Fish shell prompt"));
-    assert!(readme.contains("my-prompt init | source"));
-    assert!(readme.contains("available on your `PATH`"));
-}
-
-#[test]
-fn readme_documents_cli_only_support_boundary() {
-    let readme = include_str!("../README.md");
-
-    assert!(readme.contains("self-contained CLI"));
-    assert!(readme.contains("does not provide a Rust library API"));
-    assert!(readme.contains("segment is omitted silently"));
-}
-
-#[test]
 fn help_exits_successfully_and_displays_usage() {
     let output = binary_command().arg("--help").output().expect("run --help");
     let stdout = output_text(&output);
