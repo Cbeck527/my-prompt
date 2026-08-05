@@ -20,6 +20,8 @@ minor version.
   Free can release.
 - Added the temporary signing keychain to `codesign`'s search list before
   signing macOS release binaries.
+- Verified standalone macOS binaries with `codesign`'s notarization requirement
+  instead of an app-only Gatekeeper assessment.
 
 ### Changed
 

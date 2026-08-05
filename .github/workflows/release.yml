@@ -295,7 +295,10 @@ jobs:
           jq empty "$log"
           jq '{id, status, message}' "$result"
 
-          spctl --assess --type execute --verbose=4 "$binary"
+          codesign --verify --verbose=4 \
+            --check-notarization \
+            --test-requirement '=notarized' \
+            "$binary"
 
       - name: Smoke-test signed binary
         shell: bash
