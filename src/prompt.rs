@@ -1,8 +1,8 @@
 use crate::module_trait::{Module, ModuleContext};
-use crate::modules::{character, claude, direnv, envs, fail, git, hostname, path, time, username};
+use crate::modules::{character, claude, direnv, envs, fail, git, path, time, username};
 use rayon::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum PromptModule {
     Character,
     Claude,
@@ -10,8 +10,6 @@ pub(crate) enum PromptModule {
     Fail,
     Envs,
     Git,
-    #[allow(dead_code)] // I might use hostname in the future...
-    Hostname,
     Path,
     Time,
     Username,
@@ -20,16 +18,15 @@ pub(crate) enum PromptModule {
 impl PromptModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
         match self {
-            Self::Character => character::CharacterModule::new().render(context),
-            Self::Claude => claude::ClaudeModule::new().render(context),
-            Self::Direnv => direnv::DirenvModule::new().render(context),
-            Self::Fail => fail::FailModule::new().render(context),
-            Self::Envs => envs::EnvsModule::new().render(context),
+            Self::Character => character::CharacterModule.render(context),
+            Self::Claude => claude::ClaudeModule.render(context),
+            Self::Direnv => direnv::DirenvModule.render(context),
+            Self::Fail => fail::FailModule.render(context),
+            Self::Envs => envs::EnvsModule.render(context),
             Self::Git => git::GitModule.render(context),
-            Self::Hostname => hostname::HostnameModule::new().render(context),
-            Self::Path => path::PathModule::new().render(context),
+            Self::Path => path::PathModule.render(context),
             Self::Time => time::TimeModule.render(context),
-            Self::Username => username::UsernameModule::new().render(context),
+            Self::Username => username::UsernameModule.render(context),
         }
     }
 }

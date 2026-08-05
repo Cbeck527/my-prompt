@@ -5,19 +5,6 @@ use std::path::Path;
 
 pub(crate) struct PathModule;
 
-impl Default for PathModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PathModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
 fn normalize_relative_path(current_dir: &Path) -> String {
     let current_canon = current_dir
         .canonicalize()
@@ -69,8 +56,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_path_renders() {
-        let module = PathModule::new();
+    fn module_renders_a_path_with_trailing_space() {
+        let module = PathModule;
         let context = ModuleContext::default();
 
         let result = module.render(&context);

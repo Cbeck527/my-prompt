@@ -1,16 +1,10 @@
-# cargo-deny configuration
-
 [licenses]
-# List of allowed licenses
 allow = [
     "MIT",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
-    "BSD-2-Clause",
     "BSD-3-Clause",
-    "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "CC0-1.0",
     "Zlib",
 ]
@@ -22,13 +16,12 @@ exceptions = [
 ]
 
 [bans]
-# Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
-# Skip certain crates when checking for duplicates
-skip = []
+# gix's dependency graph legitimately contains parallel versions. Review
+# `cargo tree --duplicates` during dependency updates instead of making every
+# policy check emit the same non-actionable warnings.
+multiple-versions = "allow"
 
 [advisories]
-# The advisories section is used to configure how the advisory database is used
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # Direct dependencies must be maintained. Transitive maintenance notices are
@@ -36,9 +29,6 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 unmaintained = "workspace"
 
 [sources]
-# Lint level for what to happen when a crate from a crate registry that is not in the allow list is encountered
-unknown-registry = "warn"
-# Lint level for what to happen when a crate from a git repository that is not in the allow list is encountered
-unknown-git = "warn"
-# List of allowed crate registries
+unknown-registry = "deny"
+unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

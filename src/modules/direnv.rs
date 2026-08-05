@@ -6,18 +6,7 @@ use crate::module_trait::{Module, ModuleContext};
 use crate::modules::utils;
 pub(crate) struct DirenvModule;
 
-impl Default for DirenvModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl DirenvModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-
     fn render_with_direnv_file(
         direnv_file: Option<&Path>,
         context: &ModuleContext,
@@ -83,8 +72,6 @@ struct DirenvStatusRc {
 struct DirenvStatusState {
     #[serde(rename = "foundRC")]
     found_rc: Option<DirenvStatusRc>,
-    #[serde(rename = "loadedRC")]
-    _loaded_rc: Option<DirenvStatusRc>,
 }
 
 #[derive(Deserialize)]
@@ -104,6 +91,24 @@ fn parse_direnv_status(status_text: &str, direnv_file: &Path) -> Option<DirenvSt
         0 => Some(DirenvState::Allowed),
         1 | 2 => Some(DirenvState::Blocked),
         _ => None,
+    }
+}
+
+pub(crate) fn benchmark_label(
+    direnv_file: Option<&Path>,
+    cached_status_json: Option<&str>,
+) -> &'static str {
+    let Some(direnv_file) = direnv_file else {
+        return "no .envrc";
+    };
+
+    if cached_status_json
+        .and_then(|status_json| parse_direnv_status(status_json, direnv_file))
+        .is_some()
+    {
+        "shell cache"
+    } else {
+        "external status"
     }
 }
 
@@ -223,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_direnv_without_envrc() {
+    fn module_does_not_render_without_an_envrc() {
         let context = ModuleContext::default();
         let temp_dir = tempfile::tempdir().expect("create temporary directory");
         let direnv_file = temp_dir.path().join(".envrc");
@@ -236,5 +241,37 @@ mod tests {
             result.is_none(),
             "Direnv module shouldn't render without .envrc"
         );
+    }
+
+    #[test]
+    fn benchmark_reports_no_envrc_when_no_file_was_found() {
+        assert_eq!(benchmark_label(None, None), "no .envrc");
+    }
+
+    #[test]
+    fn benchmark_reports_shell_cache_only_for_a_matching_valid_status() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+        let matching_status = status_json(direnv_file, Some(0), None);
+        let other_status = status_json(Path::new("/tmp/other/.envrc"), Some(0), None);
+
+        assert_eq!(
+            benchmark_label(Some(direnv_file), Some(&matching_status)),
+            "shell cache"
+        );
+        assert_eq!(
+            benchmark_label(Some(direnv_file), Some(&other_status)),
+            "external status"
+        );
+        assert_eq!(
+            benchmark_label(Some(direnv_file), Some("not json")),
+            "external status"
+        );
+    }
+
+    #[test]
+    fn benchmark_reports_external_status_without_a_usable_cache() {
+        let direnv_file = Path::new("/tmp/project/.envrc");
+
+        assert_eq!(benchmark_label(Some(direnv_file), None), "external status");
     }
 }

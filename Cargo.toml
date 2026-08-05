@@ -1,11 +1,11 @@
 [package]
 name = "my-prompt"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.96"
 publish = false
 authors = ["Chris Becker <chris@becker.am>"]
-description = "My ultra-fast shell prompt based on `prmt` by Ivan Zakharchanka"
+description = "A fast, personal shell prompt inspired by prmt"
 license = "MIT"
 repository = "https://github.com/cbeck527/my-prompt"
 homepage = "https://github.com/cbeck527/my-prompt"
@@ -18,26 +18,25 @@ name = "my-prompt"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.6", features = ["derive", "env"] }
+clap = { version = "4.6", features = ["derive"] }
 gix = { version = "0.86", default-features = false, features = ["max-performance-safe", "sha1", "status"] }
 rayon = "1"
 dirs = "6"
-bitflags = "2"
 chrono = "0.4"
 whoami = "2.1"
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
 
 [dev-dependencies]
-criterion = { version = "0.8", features = ["html_reports"] }
-regex = "1"
-serial_test = "4.0"
 tempfile = "3"
 
 [lints.clippy]
 pedantic = { level = "deny", priority = -1 }
+needless_collect = "deny"
+redundant_clone = "deny"
 
 [lints.rust]
+unsafe_code = "forbid"
 warnings = "deny"
 
 [profile.release]

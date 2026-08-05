@@ -4,22 +4,9 @@ use whoami::username;
 
 pub(crate) struct UsernameModule;
 
-impl Default for UsernameModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl UsernameModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
 impl Module for UsernameModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
-        let actual_username = username().unwrap_or(String::from("unknown"));
+        let actual_username = username().unwrap_or_else(|_| "unknown".to_owned());
         let display_name = match actual_username.as_str() {
             "christopher.becker" => "chris",
             _ => &actual_username,
@@ -46,8 +33,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_username_renders() {
-        let module = UsernameModule::new();
+    fn module_renders_a_nonempty_username() {
+        let module = UsernameModule;
         let context = ModuleContext::default();
 
         let result = module.render(&context);

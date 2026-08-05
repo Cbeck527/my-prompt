@@ -2,19 +2,6 @@ use crate::module_trait::{Module, ModuleContext};
 
 pub(crate) struct CharacterModule;
 
-impl Default for CharacterModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl CharacterModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
 impl Module for CharacterModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
         let symbol = "$";
@@ -39,8 +26,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_character_renders() {
-        let module = CharacterModule::new();
+    fn character_renders_the_shell_symbol() {
+        let module = CharacterModule;
         let context = ModuleContext::default();
 
         let result = module.render(&context);

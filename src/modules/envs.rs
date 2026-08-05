@@ -1,50 +1,23 @@
-use std::env;
-
 use crate::module_trait::{Module, ModuleContext};
+
 pub(crate) struct EnvsModule;
-
-impl Default for EnvsModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EnvsModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
-struct SpecialEnvVars {
-    name: &'static str,
-    display_name: &'static str,
-}
-
-const SPECIAL_ENV_VARS: &[SpecialEnvVars] = &[
-    SpecialEnvVars {
-        name: "IN_NIX_SHELL",
-        display_name: "nix",
-    },
-    SpecialEnvVars {
-        name: "VIRTUAL_ENV",
-        display_name: "virtualenv",
-    },
-];
 
 impl Module for EnvsModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
-        let present_vars: Vec<_> = SPECIAL_ENV_VARS
-            .iter()
-            .filter(|v| env::var_os(v.name).is_some())
-            .map(|v| format!("+{}", v.display_name))
-            .collect();
-
-        if present_vars.is_empty() {
-            return None;
+        let mut text = String::new();
+        if context.environments.nix_shell {
+            text.push_str("+nix");
+        }
+        if context.environments.virtual_env {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            text.push_str("+virtualenv");
         }
 
-        let text = present_vars.join(" ");
+        if text.is_empty() {
+            return None;
+        }
 
         if context.no_color {
             Some(format!("[{text}] "))
@@ -64,136 +37,51 @@ impl Module for EnvsModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
-    use std::ffi::OsString;
+    use crate::module_trait::EnvironmentState;
 
-    /// RAII guard that restores an environment variable when dropped.
-    struct EnvVarGuard {
-        key: &'static str,
-        previous_value: Option<OsString>,
-    }
-
-    impl Drop for EnvVarGuard {
-        fn drop(&mut self) {
-            unsafe {
-                if let Some(value) = self.previous_value.take() {
-                    env::set_var(self.key, value);
-                } else {
-                    env::remove_var(self.key);
-                }
-            }
-        }
-    }
-
-    impl EnvVarGuard {
-        fn set(key: &'static str, value: &str) -> Self {
-            let previous_value = env::var_os(key);
-            unsafe {
-                env::set_var(key, value);
-            }
-            Self {
-                key,
-                previous_value,
-            }
-        }
-
-        fn unset(key: &'static str) -> Self {
-            let previous_value = env::var_os(key);
-            unsafe {
-                env::remove_var(key);
-            }
-            Self {
-                key,
-                previous_value,
-            }
-        }
-    }
-
-    fn clear_special_env_vars() -> Vec<EnvVarGuard> {
-        SPECIAL_ENV_VARS
-            .iter()
-            .map(|var| EnvVarGuard::unset(var.name))
-            .collect()
+    fn render(environments: EnvironmentState) -> Option<String> {
+        EnvsModule.render(&ModuleContext {
+            no_color: true,
+            environments,
+            ..ModuleContext::default()
+        })
     }
 
     #[test]
-    #[serial]
-    fn test_without_vars() {
-        let _guards = clear_special_env_vars();
+    fn no_environment_segment_is_rendered_when_both_are_absent() {
+        assert_eq!(render(EnvironmentState::default()), None);
+    }
 
-        let module = EnvsModule::new();
-        let context = ModuleContext::default();
-
-        let result = module.render(&context);
-        assert!(
-            result.is_none(),
-            "Envs module shouldn't render without any special vars"
+    #[test]
+    fn nix_shell_is_rendered_from_the_context_snapshot() {
+        assert_eq!(
+            render(EnvironmentState {
+                nix_shell: true,
+                virtual_env: false,
+            }),
+            Some("[+nix] ".to_owned())
         );
     }
 
     #[test]
-    #[serial]
-    fn test_with_nix() {
-        let _clear_guards = clear_special_env_vars();
-        let _guard = EnvVarGuard::set("IN_NIX_SHELL", "test");
-
-        let module = EnvsModule::new();
-        let context = ModuleContext {
-            exit_code: Some(0),
-            no_color: true,
-            ..Default::default()
-        };
-
-        let result = module.render(&context);
+    fn virtual_environment_is_rendered_from_the_context_snapshot() {
         assert_eq!(
-            result,
-            Some("[+nix] ".to_string()),
-            "Envs module should render in nix shell"
+            render(EnvironmentState {
+                nix_shell: false,
+                virtual_env: true,
+            }),
+            Some("[+virtualenv] ".to_owned())
         );
     }
 
     #[test]
-    #[serial]
-    fn test_with_virtualenv() {
-        let _clear_guards = clear_special_env_vars();
-        let _guard = EnvVarGuard::set("VIRTUAL_ENV", "test");
-
-        let module = EnvsModule::new();
-        let context = ModuleContext {
-            exit_code: Some(0),
-            no_color: true,
-            ..Default::default()
-        };
-
-        let result = module.render(&context);
+    fn both_environments_preserve_the_personal_display_order() {
         assert_eq!(
-            result,
-            Some("[+virtualenv] ".to_string()),
-            "Envs module should render in virtualenv"
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_with_all_special_vars() {
-        let _clear_guards = clear_special_env_vars();
-        let _guards: Vec<_> = SPECIAL_ENV_VARS
-            .iter()
-            .map(|var| EnvVarGuard::set(var.name, "test"))
-            .collect();
-
-        let module = EnvsModule::new();
-        let context = ModuleContext {
-            exit_code: Some(0),
-            no_color: true,
-            ..Default::default()
-        };
-
-        let result = module.render(&context);
-        assert_eq!(
-            result,
-            Some("[+nix +virtualenv] ".to_string()),
-            "Envs module should render all special vars"
+            render(EnvironmentState {
+                nix_shell: true,
+                virtual_env: true,
+            }),
+            Some("[+nix +virtualenv] ".to_owned())
         );
     }
 }

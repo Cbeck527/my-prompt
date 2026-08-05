@@ -1,18 +1,16 @@
+use chrono::{Local, NaiveTime};
+
 use crate::module_trait::{Module, ModuleContext};
-use chrono::Local;
 
 pub(crate) struct TimeModule;
 
-impl Default for TimeModule {
-    fn default() -> Self {
-        Self
-    }
+fn format_time(time: NaiveTime) -> String {
+    time.format("%I:%M%p").to_string()
 }
 
 impl Module for TimeModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
-        let now = Local::now();
-        let formatted = now.format("%I:%M%p").to_string();
+        let formatted = format_time(Local::now().time());
 
         if context.no_color {
             Some(format!("[{formatted}] "))
@@ -32,46 +30,29 @@ impl Module for TimeModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use regex::Regex;
 
     #[test]
-    fn test_time_module_no_color() {
-        let module = TimeModule;
-        let context = ModuleContext {
-            exit_code: None,
-            no_color: true,
-            ..ModuleContext::default()
-        };
-
-        let result = module.render(&context);
-        assert!(result.is_some());
-        let output = result.unwrap();
-
-        // Should be plain text with brackets
-        let re = Regex::new(r"^\[\d{2}:\d{2}(AM|PM)\] $").unwrap();
-        assert!(
-            re.is_match(&output),
-            "Expected plain [hh:MMAM/PM] format, got: {output}",
-        );
+    fn midnight_uses_twelve_hour_format() {
+        let midnight = NaiveTime::from_hms_opt(0, 0, 0).expect("valid midnight");
+        assert_eq!(format_time(midnight), "12:00AM");
     }
 
     #[test]
-    fn test_time_module_hour_range() {
-        let module = TimeModule;
-        let context = ModuleContext::default();
+    fn noon_uses_twelve_hour_format() {
+        let noon = NaiveTime::from_hms_opt(12, 0, 0).expect("valid noon");
+        assert_eq!(format_time(noon), "12:00PM");
+    }
 
-        let result = module.render(&context);
-        assert!(result.is_some());
-        let output = result.unwrap();
+    #[test]
+    fn rendered_time_uses_plain_bracketed_output_without_color() {
+        let result = TimeModule.render(&ModuleContext {
+            no_color: true,
+            ..ModuleContext::default()
+        });
 
-        // Extract the hour from the output
-        let re = Regex::new(r"\[(\d{2}):\d{2}(AM|PM)\]").unwrap();
-        if let Some(caps) = re.captures(&output) {
-            let hour = caps[1].parse::<u32>().unwrap();
-            assert!(
-                (1..=12).contains(&hour),
-                "12h format hour should be 1-12, got: {hour}",
-            );
-        }
+        let output = result.expect("time always renders");
+        assert!(output.starts_with('['));
+        assert!(output.ends_with("] "));
+        assert!(!output.contains('\u{1b}'));
     }
 }

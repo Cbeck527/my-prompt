@@ -191,7 +191,7 @@ fn readme_documents_cli_only_support_boundary() {
     let readme = include_str!("../README.md");
 
     assert!(readme.contains("self-contained CLI"));
-    assert!(readme.contains("not provide a Rust library API"));
+    assert!(readme.contains("does not provide a Rust library API"));
     assert!(readme.contains("segment is omitted silently"));
 }
 
@@ -514,9 +514,8 @@ printf '{"state":{"foundRC":{"path":"%s","allowed":%s},"loadedRC":null}}\n' \
     fs::set_permissions(&fake_direnv, permissions).expect("make fake direnv executable");
 
     let inherited_path = path_with_binary_directory();
-    let path =
-        env::join_paths(std::iter::once(fake_bin.clone()).chain(env::split_paths(&inherited_path)))
-            .expect("join test PATH entries");
+    let path = env::join_paths(std::iter::once(fake_bin).chain(env::split_paths(&inherited_path)))
+        .expect("join test PATH entries");
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/init/my-prompt.fish");
     let output = Command::new("fish")
         .args([

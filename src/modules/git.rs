@@ -1,13 +1,38 @@
 use crate::module_trait::{GitBackend, Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
-use bitflags::bitflags;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::process::{Command, Stdio};
 
-bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    struct GitStatus: u8 {
-        const MODIFIED = 0b001;
-        const UNTRACKED = 0b100;
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct GitStatus {
+    modified: bool,
+    untracked: bool,
+}
+
+impl GitStatus {
+    const CLEAN: Self = Self {
+        modified: false,
+        untracked: false,
+    };
+    #[cfg(test)]
+    const MODIFIED: Self = Self {
+        modified: true,
+        untracked: false,
+    };
+    #[cfg(test)]
+    const UNTRACKED: Self = Self {
+        modified: false,
+        untracked: true,
+    };
+    #[cfg(test)]
+    const MODIFIED_AND_UNTRACKED: Self = Self {
+        modified: true,
+        untracked: true,
+    };
+
+    fn is_complete(self) -> bool {
+        self.modified && self.untracked
     }
 }
 
@@ -18,19 +43,6 @@ struct GitInfo {
 }
 
 pub(crate) struct GitModule;
-
-impl Default for GitModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GitModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
 
 fn parse_branch_header(header: &str) -> Option<String> {
     let branch = header.strip_prefix("## ")?;
@@ -48,34 +60,44 @@ fn parse_branch_header(header: &str) -> Option<String> {
     (!branch.is_empty()).then(|| branch.to_owned())
 }
 
-fn parse_git_status_output(text: &str) -> Option<GitInfo> {
-    let mut lines = text.lines();
-    let branch = parse_branch_header(lines.next()?)?;
+fn parse_git_status<R: BufRead>(mut reader: R) -> Option<GitInfo> {
+    let mut line = String::new();
+    if reader.read_line(&mut line).ok()? == 0 {
+        return None;
+    }
+    let branch = parse_branch_header(line.trim_end_matches(&['\r', '\n'][..]))?;
 
-    let mut status = GitStatus::empty();
-    for line in lines {
-        let status_code = line.as_bytes().get(..2)?;
-        if line.as_bytes().get(2) != Some(&b' ') {
+    let mut status = GitStatus::CLEAN;
+    loop {
+        line.clear();
+        if reader.read_line(&mut line).ok()? == 0 {
+            break;
+        }
+        let record = line.trim_end_matches(&['\r', '\n'][..]);
+        let status_code = record.as_bytes().get(..2)?;
+        if record.as_bytes().get(2) != Some(&b' ') {
             return None;
         }
 
         if status_code == b"??" {
-            status |= GitStatus::UNTRACKED;
+            status.untracked = true;
         } else if status_code != b"  " {
-            status |= GitStatus::MODIFIED;
-        }
-
-        if status.contains(GitStatus::MODIFIED | GitStatus::UNTRACKED) {
-            break;
+            status.modified = true;
         }
     }
 
     Some(GitInfo { branch, status })
 }
 
+#[cfg(test)]
+fn parse_git_status_output(text: &str) -> Option<GitInfo> {
+    parse_git_status(std::io::Cursor::new(text))
+}
+
 fn get_git_info_binary(current_dir: &Path) -> Option<GitInfo> {
-    let output = std::process::Command::new("git")
+    let mut child = Command::new("git")
         .args([
+            "--no-optional-locks",
             "status",
             "--porcelain=v1",
             "--branch",
@@ -84,14 +106,27 @@ fn get_git_info_binary(current_dir: &Path) -> Option<GitInfo> {
             "--no-renames",
         ])
         .current_dir(current_dir)
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
 
-    if !output.status.success() {
+    let Some(stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    let info = parse_git_status(BufReader::new(stdout));
+    if info.is_none() {
+        let _ = child.kill();
+    }
+    let status = child.wait().ok()?;
+
+    if !status.success() {
         return None;
     }
 
-    parse_git_status_output(&String::from_utf8_lossy(&output.stdout))
+    info
 }
 
 fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
@@ -101,7 +136,7 @@ fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
         .referent_name()
         .map_or_else(|| "HEAD".to_owned(), |name| name.shorten().to_string());
 
-    // gix-index 0.53 assumes the mapped index can contain an object ID checksum.
+    // Reject a truncated index before gix maps and reads its trailing checksum.
     let index_is_long_enough = match repo.index_path().metadata() {
         Ok(metadata) => {
             let checksum_length = u64::try_from(repo.object_hash().len_in_bytes()).ok()?;
@@ -115,7 +150,7 @@ fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
 
     let dirwalk_options = repo.dirwalk_options().ok()?;
 
-    let mut status = GitStatus::empty();
+    let mut status = GitStatus::CLEAN;
     let status_iter = repo
         .status(gix::progress::Discard)
         .ok()?
@@ -137,20 +172,20 @@ fn get_git_info_gix(current_dir: &Path) -> Option<GitInfo> {
 
         match item {
             gix::status::Item::TreeIndex(_) => {
-                status |= GitStatus::MODIFIED;
+                status.modified = true;
             }
             gix::status::Item::IndexWorktree(item) => match item.summary() {
                 Some(gix::status::index_worktree::iter::Summary::Added) => {
-                    status |= GitStatus::UNTRACKED;
+                    status.untracked = true;
                 }
                 Some(_) => {
-                    status |= GitStatus::MODIFIED;
+                    status.modified = true;
                 }
                 None => {}
             },
         }
 
-        if status.contains(GitStatus::MODIFIED | GitStatus::UNTRACKED) {
+        if status.is_complete() {
             break;
         }
     }
@@ -176,8 +211,8 @@ impl Module for GitModule {
         let info = get_git_info(context.git_backend, &current_dir)?;
 
         let branch = sanitize_display_text(&info.branch);
-        let has_changes = info.status.contains(GitStatus::MODIFIED);
-        let has_untracked = info.status.contains(GitStatus::UNTRACKED);
+        let has_changes = info.status.modified;
+        let has_untracked = info.status.untracked;
 
         let mut indicators = String::new();
         if has_changes {
@@ -376,7 +411,7 @@ mod tests {
     fn backends_report_clean_named_branch() {
         let repository = TestRepository::with_initial_commit();
 
-        assert_backends(repository.path(), git_info("main", GitStatus::empty()));
+        assert_backends(repository.path(), git_info("main", GitStatus::CLEAN));
     }
 
     #[test]
@@ -386,7 +421,7 @@ mod tests {
 
         assert_backends(
             repository.path(),
-            git_info("feature/topic", GitStatus::empty()),
+            git_info("feature/topic", GitStatus::CLEAN),
         );
     }
 
@@ -394,7 +429,7 @@ mod tests {
     fn backends_report_unborn_branch() {
         let repository = TestRepository::init();
 
-        assert_backends(repository.path(), git_info("main", GitStatus::empty()));
+        assert_backends(repository.path(), git_info("main", GitStatus::CLEAN));
     }
 
     #[test]
@@ -402,7 +437,7 @@ mod tests {
         let repository = TestRepository::with_initial_commit();
         repository.git(&["switch", "--quiet", "--detach", "HEAD"]);
 
-        assert_backends(repository.path(), git_info("HEAD", GitStatus::empty()));
+        assert_backends(repository.path(), git_info("HEAD", GitStatus::CLEAN));
     }
 
     #[test]
@@ -412,7 +447,7 @@ mod tests {
         repository.write("nested/directory/tracked.txt", "tracked\n");
         repository.commit_all("add nested directory");
 
-        assert_backends(&nested_directory, git_info("main", GitStatus::empty()));
+        assert_backends(&nested_directory, git_info("main", GitStatus::CLEAN));
     }
 
     #[test]
@@ -433,7 +468,7 @@ mod tests {
             "HEAD",
         ]);
 
-        assert_backends(&linked_worktree, git_info("HEAD", GitStatus::empty()));
+        assert_backends(&linked_worktree, git_info("HEAD", GitStatus::CLEAN));
     }
 
     #[test]
@@ -497,7 +532,7 @@ mod tests {
 
         assert_backends(
             repository.path(),
-            git_info("main", GitStatus::MODIFIED | GitStatus::UNTRACKED),
+            git_info("main", GitStatus::MODIFIED_AND_UNTRACKED),
         );
     }
 
@@ -540,7 +575,7 @@ mod tests {
         repository.commit_all("add ignore rule");
         repository.write("ignored-directory/file.txt", "ignored\n");
 
-        assert_backends(repository.path(), git_info("main", GitStatus::empty()));
+        assert_backends(repository.path(), git_info("main", GitStatus::CLEAN));
     }
 
     #[test]
@@ -551,7 +586,7 @@ mod tests {
 
         assert_backends(
             repository.path(),
-            git_info("main", GitStatus::MODIFIED | GitStatus::UNTRACKED),
+            git_info("main", GitStatus::MODIFIED_AND_UNTRACKED),
         );
     }
 
@@ -570,7 +605,7 @@ mod tests {
         parent.write("submodule/tracked.txt", "dirty submodule contents\n");
         parent.write("submodule/untracked.txt", "untracked inside submodule\n");
 
-        assert_backends(parent.path(), git_info("main", GitStatus::empty()));
+        assert_backends(parent.path(), git_info("main", GitStatus::CLEAN));
     }
 
     #[test]
@@ -619,7 +654,7 @@ mod tests {
             info,
             GitInfo {
                 branch: "main".to_owned(),
-                status: GitStatus::empty(),
+                status: GitStatus::CLEAN,
             }
         );
     }
@@ -681,7 +716,7 @@ mod tests {
             info,
             GitInfo {
                 branch: "feature".to_owned(),
-                status: GitStatus::MODIFIED | GitStatus::UNTRACKED,
+                status: GitStatus::MODIFIED_AND_UNTRACKED,
             }
         );
     }

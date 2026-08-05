@@ -2,19 +2,6 @@ use crate::module_trait::{Module, ModuleContext};
 
 pub(crate) struct FailModule;
 
-impl Default for FailModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl FailModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
 impl Module for FailModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
         let exit_code = context.exit_code.unwrap_or(0);
@@ -44,8 +31,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fail_hidden_on_success() {
-        let module = FailModule::new();
+    fn module_is_hidden_after_a_successful_command() {
+        let module = FailModule;
         let context = ModuleContext {
             exit_code: Some(0),
             ..ModuleContext::default()
@@ -55,8 +42,8 @@ mod tests {
     }
 
     #[test]
-    fn test_fail_shows_exit_code() {
-        let module = FailModule::new();
+    fn module_shows_a_nonzero_exit_code() {
+        let module = FailModule;
         let context = ModuleContext {
             exit_code: Some(42),
             ..ModuleContext::default()
@@ -70,8 +57,8 @@ mod tests {
     }
 
     #[test]
-    fn test_fail_no_color() {
-        let module = FailModule::new();
+    fn module_has_plain_output_when_color_is_disabled() {
+        let module = FailModule;
         let context = ModuleContext {
             exit_code: Some(1),
             no_color: true,

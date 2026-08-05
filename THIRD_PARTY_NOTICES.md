@@ -1,6 +1,18 @@
+# Third-party notices
+
+`my-prompt` began as a derivative of
+[`prmt`](https://github.com/3axap4eHko/prmt) by Ivan Zakharchanka. Ivan's
+license can be found [here](https://github.com/3axap4eHko/prmt/blob/master/LICENSE).
+
+## Apollo GraphQL Rust best-practices skill
+
+The repository vendors the
+[`rust-best-practices`](https://github.com/apollographql/skills/tree/main/skills/rust-best-practices)
+skill for consistent agent guidance.
+
 MIT License
 
-Copyright (c) 2026 Chris Becker
+Copyright (c) 2024 Apollo Graph, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

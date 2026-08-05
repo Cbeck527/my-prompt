@@ -3,19 +3,6 @@ use crate::modules::utils::sanitize_display_text;
 
 pub(crate) struct ClaudeModule;
 
-impl Default for ClaudeModule {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ClaudeModule {
-    #[must_use]
-    pub(crate) fn new() -> Self {
-        Self
-    }
-}
-
 /// Formats a token count into a human-readable string.
 /// - 0-999: as-is (e.g., "845")
 /// - 1,000-9,999: one decimal (e.g., "1.2k")
@@ -27,13 +14,19 @@ fn format_tokens(n: u64) -> String {
     if n >= 10_000_000 {
         format!("{}M", n / 1_000_000)
     } else if n >= 1_000_000 {
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "token counts in the display range retain sufficient decimal precision"
+        )]
         let val = n as f64 / 1_000_000.0;
         format!("{val:.1}M")
     } else if n >= 10_000 {
         format!("{}k", n / 1000)
     } else if n >= 1_000 {
-        #[allow(clippy::cast_precision_loss)] // token counts are well within f64 precision
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "token counts in the display range retain sufficient decimal precision"
+        )]
         let val = n as f64 / 1000.0;
         format!("{val:.1}k")
     } else {
@@ -73,17 +66,17 @@ impl Module for ClaudeModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::module_trait::ClaudeSession;
+    use crate::claude::ClaudeSession;
 
     #[test]
-    fn test_format_tokens_small() {
+    fn small_token_counts_are_written_in_full() {
         assert_eq!(format_tokens(0), "0");
         assert_eq!(format_tokens(500), "500");
         assert_eq!(format_tokens(999), "999");
     }
 
     #[test]
-    fn test_format_tokens_thousands() {
+    fn low_thousands_keep_one_decimal_place() {
         assert_eq!(format_tokens(1000), "1.0k");
         assert_eq!(format_tokens(1234), "1.2k");
         assert_eq!(format_tokens(5678), "5.7k");
@@ -91,7 +84,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_tokens_large() {
+    fn high_thousands_drop_the_decimal_place() {
         assert_eq!(format_tokens(10000), "10k");
         assert_eq!(format_tokens(12845), "12k");
         assert_eq!(format_tokens(100_000), "100k");
@@ -100,7 +93,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_tokens_millions() {
+    fn millions_follow_the_same_display_thresholds() {
         assert_eq!(format_tokens(1_000_000), "1.0M");
         assert_eq!(format_tokens(1_500_000), "1.5M");
         assert_eq!(format_tokens(2_000_000), "2.0M");
@@ -110,8 +103,8 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_module_no_session() {
-        let module = ClaudeModule::new();
+    fn module_is_hidden_without_a_claude_session() {
+        let module = ClaudeModule;
         let context = ModuleContext::default();
 
         let result = module.render(&context);
@@ -119,8 +112,8 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_module_with_session_no_color() {
-        let module = ClaudeModule::new();
+    fn module_renders_plain_session_text_without_color() {
+        let module = ClaudeModule;
         let context = ModuleContext {
             no_color: true,
             claude_session: Some(ClaudeSession {
@@ -137,8 +130,8 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_module_with_session_color() {
-        let module = ClaudeModule::new();
+    fn module_renders_session_text_with_color() {
+        let module = ClaudeModule;
         let context = ModuleContext {
             no_color: false,
             claude_session: Some(ClaudeSession {
@@ -156,12 +149,12 @@ mod tests {
         assert!(output.contains("5.0k"));
         assert!(output.contains("200k"));
         assert!(output.contains("3%"));
-        assert!(output.contains("\x1b[")); // Contains ANSI codes
+        assert!(output.contains("\x1b["));
     }
 
     #[test]
     fn colored_output_escapes_model_controls_and_preserves_trusted_ansi() {
-        let module = ClaudeModule::new();
+        let module = ClaudeModule;
         let context = ModuleContext {
             no_color: false,
             claude_session: Some(ClaudeSession {

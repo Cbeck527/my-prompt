@@ -1,78 +1,35 @@
 # my-prompt
 
-A spiritual fork of [prmt](https://github.com/3axap4eHko/prmt) which is an ultra-fast, customizable shell prompt.
+`my-prompt` is my personal shell prompt I use every day. It is a small
+Rust CLI inspired by [prmt](https://github.com/3axap4eHko/prmt), with Fish
+integration, Git and direnv awareness, a transient prompt, and a Claude Code
+status line.
 
-I'm stripping it down and adding features to try and replicate the prompt that I like with [starship](https://starship.rs), but faster!
+The config is intentionally opinionated, while the implementation, tests,
+packaging, and release process help me learn more about Rust and its ecosystem.
+Fork it if your preferred prompt differs from mine!
 
-## Supported interface
+![Screenshot of my-prompt in a terminal](./etc/my-prompt.png)
 
-`my-prompt` is a self-contained CLI. The `my-prompt` executable is its only
-runtime interface; the Nix package and Home Manager module documented below are
-supported installation interfaces.
-This package does not provide a Rust library API.
+Prompt rendering is best-effort. If a module cannot obtain trustworthy data that
+segment is omitted silently. 
 
-Prompt rendering is best-effort. If a prompt module cannot obtain trustworthy
-data—for example, because an optional command is missing or returns invalid
-output—that segment is omitted silently. Rendering still writes no error and
-exits successfully. Invalid command-line arguments and failures that prevent
-the process from starting its renderer can still exit unsuccessfully.
+The project is pre-1.0 so breaking changes are almost guaranteed :sweat_smile:
 
-## Claude Code Statusline
+## Installation
 
-`my-prompt` can be used as a statusline for [Claude Code](https://code.claude.com/docs/en/statusline). The `claude` subcommand produces a prompt without the username or trailing `$`, and displays session information (model, context usage).
+See [releases](https://github.com/Cbeck527/my-prompt/releases/latest) to grab the binary.
 
-### Setup
-
-Add the following to your Claude Code settings file (`~/.claude/settings.json`):
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "/absolute/path/to/my-prompt claude"
-  }
-}
-```
-
-Claude Code runs the configured command in a shell and sends JSON on standard input.
-Replace `/absolute/path/to/my-prompt` with the absolute path to the installed
-executable.
-
-### Output
-
-The statusline displays:
-- Current directory (with `~` for home)
-- Git branch and status
-- Claude session info: `[Model used/total (percentage%)]`
-
-Example:
-```
-~/src/my-project [main+?] [Opus 12k/200k (6%)]
-```
-
-Token counts are formatted for readability:
-- `845` (under 1k)
-- `5.0k` (1k-10k)
-- `12k`, `200k` (10k-1M)
-- `1.0M`, `1.5M` (1M-10M)
-- `10M` (10M+)
-
-## Installation with Nix
-
-Add `my-prompt` as a flake input and have it follow the nixpkgs revision used by
-your configuration:
+### Nix
 
 ```nix
+# add a new input
 inputs.my-prompt = {
   url = "github:cbeck527/my-prompt";
   inputs.nixpkgs.follows = "nixpkgs";
 };
-```
 
-Import the Home Manager module where `inputs` is in scope, then enable the
-program and its Fish integration:
-
-```nix
+# then set it up with home-manager
 {
   imports = [ inputs.my-prompt.homeModules.default ];
 
@@ -81,164 +38,24 @@ program and its Fish integration:
     enableFishIntegration = true;
   };
 }
-```
 
-The module installs the package and loads its Fish helper. Fish integration
-follows Home Manager's global shell-integration setting by default and can be
-overridden with `programs.my-prompt.enableFishIntegration`. The package can be
-overridden with `programs.my-prompt.package`.
-
-To install only the package without the Home Manager module:
-
-```nix
+# or just install the package
 home.packages = [
   inputs.my-prompt.packages.${pkgs.stdenv.hostPlatform.system}.my-prompt
 ];
 ```
 
-## Fish shell prompt
-
-The shipped Fish helper defines `fish_prompt`. It requires `my-prompt` to be
-available on your `PATH`. Add the following to `~/.config/fish/config.fish`:
-
-```fish
-my-prompt init | source
-```
-
-For example, after installing the binary with `cargo install --path .`, ensure
-Cargo's bin directory is on `PATH` before starting Fish.
-
-When direnv's Fish hook is enabled, the helper caches `direnv status --json`
-using direnv's `DIRENV_FILE` and `DIRENV_WATCHES` values. It refreshes the
-status only after direnv reports a different file or watch state, so unchanged
-prompts do not start a second direnv process. Direct `my-prompt` invocations
-without this shell-provided status continue to query direnv as a fallback.
-
-## Git Backends
-
-By default, `my-prompt` shells out to the `git` binary for branch and status
-information. An in-process backend is also available via `--git-backend`:
-
-| Backend | Flag | Description |
-|---------|------|-------------|
-| `binary` | `--git-backend binary` | Default. Shells out to `git`. Requires `git` on `$PATH`. |
-| `gix` | `--git-backend gix` | Uses [gitoxide](https://github.com/GitoxideLabs/gitoxide). Does not require a Git binary at runtime. |
-
-Both backends follow the same prompt contract. A clean repository renders
-`[branch]`; `+` means there is a tracked change across `HEAD`, the index, or the
-worktree, and `?` means there is at least one non-ignored untracked file or
-directory. The indicators retain that order, so a repository with both kinds
-of changes renders `[branch+?]`.
-
-Named and unborn branches use their short branch name. Detached repositories
-use `HEAD`. Modified or untracked files inside submodules are ignored, while a
-changed checked-out submodule commit or staged gitlink renders `+`. If the
-selected backend is unavailable or cannot determine trustworthy branch and
-status information, the Git segment is omitted.
-
-The `gix` backend avoids the runtime Git dependency, but untracked-file scans
-may remain slower than the `binary` backend in large repositories. Use
-`my-prompt bench --git-backend binary` and
-`my-prompt bench --git-backend gix` to compare them in a representative
-working tree.
-
-Upstream gitoxide work may improve this in a future `gix` release: the
-[UNTR decoder fix](https://github.com/GitoxideLabs/gitoxide/pull/2591) has
-landed, while [using Git's UNTR cache during directory walks](https://github.com/GitoxideLabs/gitoxide/pull/2503)
-remains in progress. If that work lands, repositories with
-`core.untrackedCache` enabled may require fewer directory scans.
-
-Prompt modules use a Rayon thread pool capped at four threads or the host's
-available parallelism, whichever is lower. A positive `RAYON_NUM_THREADS`
-value is honored within that cap; zero and invalid values use the capped host
-limit.
-The pool is initialized only after CLI parsing, so `--help`, `--version`, and
-argument errors do not start worker threads.
-
-## Development with Nix
-
-The minimum supported Rust version is 1.96. CI verifies Rust 1.96 alongside the
-current stable toolchain. Raise the minimum only when required by the project or
-its dependencies.
-
-Enter the development shell to get Rust, Cargo, formatting and linting tools,
-Cargo audit, Git, and Fish:
+Test it out with before installing:
 
 ```bash
-nix develop
+nix run github:cbeck527/my-prompt
 ```
 
-Run existing commands without entering an interactive shell:
+### Cargo
+
+Install a tagged source revision directly from GitHub:
 
 ```bash
-nix develop -c cargo test --verbose
+cargo install --git https://github.com/cbeck527/my-prompt \
+  --tag v0.2.0 --locked
 ```
-
-## Building
-
-```bash
-cargo build --release
-```
-
-For maximum performance on your local machine, enable native CPU optimizations:
-
-```bash
-RUSTFLAGS="-C target-cpu=native" cargo build --release
-```
-
-This tells LLVM to use the full instruction set of your specific CPU (e.g., Apple Silicon features on M-series Macs). Do **not** use this for cross-compiled or distributed builds -- the resulting binary will only run on CPUs with the same (or newer) feature set.
-
-## Benchmarking
-
-Use the release binary for representative process measurements:
-
-```bash
-cargo build --release --locked
-cargo run --release -- bench --no-color
-```
-
-`bench` reports cold startup from the beginning of `main` through the first
-render, followed by 100 warm render timings. The cold metric includes CLI
-parsing and Rayon initialization; it does not include the operating system's
-process launch time.
-
-The output labels the direnv path as `external status`, `shell cache`, or
-`no .envrc`. Run all three scenarios from Fish to compare them:
-
-```fish
-set prompt_binary (pwd)/target/release/my-prompt
-
-# External lookup from a directory containing .envrc.
-begin
-    set -lx MY_PROMPT_DIRENV_STATUS_JSON ""
-    $prompt_binary bench --no-color
-end
-
-# Cached lookup from the same directory.
-begin
-    set -lx MY_PROMPT_DIRENV_STATUS_JSON (direnv status --json | string collect)
-    $prompt_binary bench --no-color
-end
-
-# Directory without .envrc.
-set empty_dir (mktemp -d)
-pushd $empty_dir
-$prompt_binary bench --no-color
-popd
-rmdir $empty_dir
-```
-
-The external run's first-render metric includes a cold status lookup, while
-its warm runs show the cost of repeated fallback lookups. The cached and
-no-`.envrc` runs should not start `direnv` during rendering.
-
-## Platform support
-
-Prebuilt releases are available for Linux x86_64 (GNU and musl) and macOS on
-Apple Silicon (arm64). Intel macOS is unsupported.
-
-## License
-
-License [The MIT License](./LICENSE)
-
-Copyright (c) 2026 Chris Becker
