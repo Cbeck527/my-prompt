@@ -87,6 +87,9 @@ jobs:
       - name: Check declared Nix systems
         run: nix flake check --no-build --all-systems
 
+      - name: Build Nix package
+        run: nix build .#my-prompt --no-link --print-build-logs
+
       - name: Check dependency policy
         run: nix develop -c cargo deny --locked check
 

@@ -6,9 +6,10 @@ I'm stripping it down and adding features to try and replicate the prompt that I
 
 ## Supported interface
 
-`my-prompt` is a self-contained CLI. The `my-prompt` executable and the
-behavior documented here are its only supported interface; this package does
-not provide a Rust library API.
+`my-prompt` is a self-contained CLI. The `my-prompt` executable is its only
+runtime interface; the Nix package and Home Manager module documented below are
+supported installation interfaces.
+This package does not provide a Rust library API.
 
 Prompt rendering is best-effort. If a prompt module cannot obtain trustworthy
 data—for example, because an optional command is missing or returns invalid
@@ -55,6 +56,45 @@ Token counts are formatted for readability:
 - `12k`, `200k` (10k-1M)
 - `1.0M`, `1.5M` (1M-10M)
 - `10M` (10M+)
+
+## Installation with Nix
+
+Add `my-prompt` as a flake input and have it follow the nixpkgs revision used by
+your configuration:
+
+```nix
+inputs.my-prompt = {
+  url = "github:cbeck527/my-prompt";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+Import the Home Manager module where `inputs` is in scope, then enable the
+program and its Fish integration:
+
+```nix
+{
+  imports = [ inputs.my-prompt.homeModules.default ];
+
+  programs.my-prompt = {
+    enable = true;
+    enableFishIntegration = true;
+  };
+}
+```
+
+The module installs the package and loads its Fish helper. Fish integration
+follows Home Manager's global shell-integration setting by default and can be
+overridden with `programs.my-prompt.enableFishIntegration`. The package can be
+overridden with `programs.my-prompt.package`.
+
+To install only the package without the Home Manager module:
+
+```nix
+home.packages = [
+  inputs.my-prompt.packages.${pkgs.stdenv.hostPlatform.system}.my-prompt
+];
+```
 
 ## Fish shell prompt
 
