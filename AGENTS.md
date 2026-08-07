@@ -25,7 +25,8 @@ process I/O; `src/claude.rs` parses Claude status input; `src/prompt.rs` owns
 ordered parallel rendering; `src/module_trait.rs` defines the render snapshot
 and module trait; and prompt components live under `src/modules/`. Black-box CLI
 tests are in `tests/`. Fish setup is embedded from `src/init/my-prompt.fish`;
-shared release smoke and packaging logic lives in `scripts/`.
+shared release smoke and packaging logic lives in `scripts/`. The static Astro
+portfolio site and its Cloudflare configuration live in `www/`.
 
 Nix packaging lives in `flake.nix` and `nix/`. Public behavior belongs in
 `README.md`; release-visible changes belong in `CHANGELOG.md`.
@@ -46,6 +47,10 @@ README, and this file aligned.
 - `nix develop -c cargo deny --locked check`
 - `nix develop -c cargo audit`
 - `nix develop -c actionlint`
+- `cd www && pnpm install --frozen-lockfile`
+- `cd www && pnpm check`
+- `cd www && pnpm build`
+- `cd www && pnpm exec wrangler deploy --dry-run`
 - `nix develop -c scripts/generate-third-party-licenses.sh /tmp/THIRD_PARTY_LICENSES.html`
 - `diff -u THIRD_PARTY_LICENSES.html /tmp/THIRD_PARTY_LICENSES.html`
 - `cargo run --locked -- --no-color`
@@ -53,7 +58,8 @@ README, and this file aligned.
 - `cargo run --release --locked -- bench --no-color`
 
 The strict Clippy command is the authoritative Rust lint gate. Dependency
-notices must be regenerated when `Cargo.lock` changes.
+notices must be regenerated when `Cargo.lock` changes. The website uses the
+pnpm version pinned in `www/package.json`.
 
 ## Rust style
 
