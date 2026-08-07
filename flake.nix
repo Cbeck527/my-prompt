@@ -118,6 +118,10 @@
               git
               actionlint
               hyperfine
+              nodejs_24
+              pnpm
+              typescript-go
+              typescript-language-server
               shellcheck
               stdenv.cc
             ];

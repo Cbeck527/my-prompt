@@ -1,0 +1,367 @@
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("../assets/fonts/TX-02-UltraCondensed.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("../assets/fonts/TX-02-Bold-UltraCondensed.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("../assets/fonts/TX-02-ExtraBold-UltraCondensed.woff2")
+    format("woff2");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  /* solarized colors */
+  --solarized-base00: #657b83;
+  --solarized-base01: #586e75;
+  --solarized-base02: #073642;
+  --solarized-base03: #002b36;
+  --solarized-base0: #839496;
+  --solarized-base1: #93a1a1;
+  --solarized-base2: #eee8d5;
+  --solarized-base3: #fdf6e3;
+  --solarized-blue: #268bd2;
+  --solarized-cyan: #2aa198;
+  --solarized-green: #859900;
+  --solarized-magenta: #d33682;
+  --solarized-orange: #cb4b16;
+  --solarized-red: #dc322f;
+  --solarized-violet: #6c71c4;
+  --solarized-yellow: #b58900;
+
+  --background: var(--solarized-base02);
+  --text: var(--solarized-base0);
+  --muted: #a7a7a2;
+  --line: #343432;
+  --mono:
+    "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--mono);
+  font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 10;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  transform: translateY(-150%);
+  background: var(--solarized-green);
+  color: var(--background);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.page {
+  width: min(920px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 42px 0 36px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 26px;
+  border-bottom: 1px solid var(--line);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.brand {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.brand:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.brand:focus-visible,
+.github-link:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 5px;
+}
+
+.project {
+  color: var(--solarized-green);
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.github-link:hover {
+  color: var(--solarized-base2);
+}
+
+.github-link svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.hero {
+  padding: 64px 4px 72px;
+}
+
+h1 {
+  max-width: 100%;
+  margin: 0;
+  font-size: clamp(48px, 8vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.intro {
+  max-width: 680px;
+  margin: 29px 0 0;
+  color: var(--solarized-base0);
+  font-size: clamp(23px, 3vw, 28px);
+  line-height: 1.42;
+}
+
+.terminal {
+  height: 335px;
+  margin: 56px 0 0;
+  overflow: hidden;
+  scroll-margin-top: 24px;
+  border: 1px solid #37565e;
+  border-radius: 9px;
+  background: var(--solarized-base03);
+  box-shadow:
+    0 19px 38px rgba(0, 0, 0, 0.3),
+    0 15px 12px rgba(0, 0, 0, 0.22);
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 16px;
+  border-bottom: 1px solid #232323;
+  background: #31373d;
+}
+
+.terminal-controls {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.control {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.control-close {
+  border: 7px solid #ff605c;
+}
+
+.control-minimize {
+  border: 7px solid #ffbd44;
+}
+
+.control-expand {
+  border: 7px solid #00ca4e;
+}
+
+.terminal-title {
+  margin-left: 18px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.terminal-screen {
+  padding: 17px 16px;
+}
+
+.prompt-line {
+  display: flex;
+  align-items: center;
+  gap: 0.42em;
+  width: max-content;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.prompt-user {
+  color: var(--solarized-green);
+}
+
+.prompt-nix {
+  color: var(--solarized-magenta);
+}
+
+.prompt-direnv {
+  color: var(--solarized-cyan);
+}
+
+.prompt-git {
+  color: var(--solarized-blue);
+}
+
+.prompt-git .markers {
+  color: var(--solarized-red);
+}
+
+.prompt-dir,
+.prompt-dollar {
+  color: var(--solarized-base3);
+}
+
+.cursor {
+  width: 9px;
+  height: 26px;
+  margin-left: 1px;
+  background: var(--text);
+}
+
+.site-footer {
+  color: var(--text);
+  font-size: 17px;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 700px) {
+  .page {
+    width: calc(100% - 60px);
+    padding: 14px 0 20px;
+  }
+
+  .site-header {
+    gap: 9px;
+    padding: 0 1px 20px;
+    font-size: 14px;
+    line-height: 25px;
+  }
+
+  .github-link {
+    width: 24px;
+    height: 24px;
+  }
+
+  .github-link svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .hero {
+    padding: 40px 1px 43px;
+  }
+
+  h1 {
+    font-size: clamp(48px, 13.5vw, 58px);
+    line-height: 0.96;
+  }
+
+  .intro {
+    margin-top: 20px;
+    font-size: 19px;
+    line-height: 1.45;
+  }
+
+  .terminal {
+    height: 180px;
+    margin-top: 38px;
+  }
+
+  .terminal-bar {
+    height: 34px;
+    padding: 0 10px;
+  }
+
+  .terminal-controls {
+    gap: 5px;
+  }
+
+  .control {
+    width: 6px;
+    height: 6px;
+  }
+
+  .terminal-title {
+    margin-left: 11px;
+    font-size: 11px;
+  }
+
+  .terminal-screen {
+    padding: 10px;
+  }
+
+  .prompt-line {
+    gap: 0.3em;
+    font-size: clamp(10.5px, 3.25vw, 14.5px);
+    letter-spacing: -0.02em;
+  }
+
+  .cursor {
+    width: 0.45em;
+    height: 1.45em;
+  }
+
+  .site-footer {
+    padding: 18px 1px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}

@@ -126,10 +126,44 @@ jobs:
       - name: Check minimum supported Rust
         run: cargo check --all-targets --locked --verbose
 
+  web:
+    name: Website
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: www
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          package_json_file: www/package.json
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: www/pnpm-lock.yaml
+
+      - name: Install website dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check website
+        run: pnpm check
+
+      - name: Build website
+        run: pnpm build
+
+      - name: Validate Cloudflare deployment
+        run: pnpm exec wrangler deploy --dry-run
+
   required:
     name: Required CI
     if: ${{ always() }}
-    needs: [test, dependency-policy, minimum-supported-rust]
+    needs: [test, dependency-policy, minimum-supported-rust, web]
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
@@ -139,3 +173,4 @@ jobs:
           test "${{ needs.test.result }}" = success
           test "${{ needs.dependency-policy.result }}" = success
           test "${{ needs.minimum-supported-rust.result }}" = success
+          test "${{ needs.web.result }}" = success

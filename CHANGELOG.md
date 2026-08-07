@@ -6,6 +6,11 @@ minor version.
 
 ## [Unreleased]
 
+### Added
+
+- Added the static Astro portfolio site for `cmb.software/my-prompt/` and its
+  path-scoped Cloudflare Workers deployment configuration.
+
 ## [0.3.0] - 2026-08-05
 
 ### Fixed
