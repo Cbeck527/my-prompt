@@ -23,11 +23,15 @@ See [releases](https://github.com/Cbeck527/my-prompt/releases/latest) to grab th
 ### Nix
 
 ```nix
-# add a new input
-inputs.my-prompt = {
-  url = "github:cbeck527/my-prompt";
-  inputs.nixpkgs.follows = "nixpkgs";
+# in your root flake
+nixConfig = {
+  extra-substituters = [ "https://my-prompt.cachix.org" ];
+  extra-trusted-public-keys = [
+    "my-prompt.cachix.org-1:aIzUDavhE5lzcsn6awg73yVAUnjMrAeqPATi3XrIZ0Q="
+  ];
 };
+
+inputs.my-prompt.url = "github:cbeck527/my-prompt";
 
 # then set it up with home-manager
 {
@@ -45,7 +49,13 @@ home.packages = [
 ];
 ```
 
-Test it out with before installing:
+The cache settings must be on your root flake because an input's `nixConfig`
+does not configure its consumer. Let `my-prompt` use its own locked `nixpkgs`
+revision so the package store path matches the path built by this project's CI.
+You can deliberately make `my-prompt.inputs.nixpkgs` follow your root `nixpkgs`,
+but doing so will usually miss the project-built package cache.
+
+Test it before installing:
 
 ```bash
 nix run github:cbeck527/my-prompt

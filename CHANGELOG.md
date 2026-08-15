@@ -10,6 +10,13 @@ minor version.
 
 - Added the static Astro portfolio site for `cmb.software/my-prompt/` and its
   path-scoped Cloudflare Workers deployment configuration.
+- Added a public Cachix binary cache at `my-prompt.cachix.org` for every
+  supported Nix system.
+
+### Changed
+
+- Moved `x86_64-linux` CI and quality checks to NixCI, with GitHub Actions
+  retaining native `aarch64-linux`, `aarch64-darwin`, and release work.
 
 ## [0.3.0] - 2026-08-05
 
