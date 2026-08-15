@@ -66,12 +66,67 @@ jobs:
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "release tag $RELEASE_TAG matches package version $package_version"
 
+  nixci-gate:
+    name: Require NixCI
+    needs: version-parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - name: Wait for successful NixCI suite
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          deadline=$((SECONDS + 1800))
+          while ((SECONDS < deadline)); do
+            response=$(gh api \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-suites?per_page=100")
+            suite=$(jq -c '
+              [
+                .check_suites[]
+                | select(.app.slug == "nix-ci-app")
+              ]
+              | if length == 0 then null else max_by(.id) end
+            ' <<< "$response")
+
+            if [ "$suite" != null ]; then
+              suite_id=$(jq -r '.id' <<< "$suite")
+              status=$(jq -r '.status' <<< "$suite")
+              conclusion=$(jq -r '.conclusion // "pending"' <<< "$suite")
+              echo "NixCI suite $suite_id: status=$status conclusion=$conclusion"
+
+              if [ "$status" = completed ]; then
+                if [ "$conclusion" = success ]; then
+                  exit 0
+                fi
+
+                echo "latest NixCI suite did not succeed" >&2
+                exit 1
+              fi
+            else
+              echo "no NixCI suite found for $GITHUB_SHA yet"
+            fi
+
+            sleep 15
+          done
+
+          echo "NixCI did not complete successfully within 30 minutes" >&2
+          exit 1
+
   quality-gate:
     name: Quality gate
-    needs: version-parity
+    needs: [version-parity, nixci-gate]
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yml
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
   build-linux:
     name: Build ${{ matrix.target }}
