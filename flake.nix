@@ -309,7 +309,7 @@
               rustc
             ];
             commands = ''
-              scripts/generate-third-party-licenses.sh generated.html
+              ${pkgs.bash}/bin/bash scripts/generate-third-party-licenses.sh generated.html
               diff -u THIRD_PARTY_LICENSES.html generated.html
             '';
           };
