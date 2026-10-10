@@ -6,11 +6,6 @@ minor version.
 
 ## [Unreleased]
 
-### Changed
-
-- Refreshed Rust, website, and Nix dependencies, including `gix` 0.89, which
-  drops the yanked `bisync` crate, and `dirs` 7.
-
 ## [0.3.1] - 2026-10-10
 
 ### Added
@@ -26,6 +21,8 @@ minor version.
 
 - Moved `x86_64-linux` CI and quality checks to NixCI, with GitHub Actions
   retaining native `aarch64-linux`, `aarch64-darwin`, and release work.
+- Refreshed Rust, website, and Nix dependencies, including `gix` 0.89, which
+  drops the yanked `bisync` crate, and `dirs` 7.
 
 ## [0.3.0] - 2026-08-05
 
