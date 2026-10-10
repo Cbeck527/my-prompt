@@ -67,5 +67,5 @@ Install a tagged source revision directly from GitHub:
 
 ```bash
 cargo install --git https://github.com/cbeck527/my-prompt \
-  --tag v0.3.0 --locked
+  --tag v0.3.1 --locked
 ```
