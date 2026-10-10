@@ -161,7 +161,8 @@
               {
                 home = {
                   username = "my-prompt-check";
-                  homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/my-prompt-check" else "/home/my-prompt-check";
+                  homeDirectory =
+                    if pkgs.stdenv.hostPlatform.isDarwin then "/Users/my-prompt-check" else "/home/my-prompt-check";
                   stateVersion = "24.11";
                 };
                 programs = {
