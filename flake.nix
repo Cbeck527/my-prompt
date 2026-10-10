@@ -224,7 +224,7 @@
                 pnpm config set network-concurrency 4
               '';
               env.NODE_NO_WARNINGS = "1";
-              hash = "sha256-4UIJZrRrQzHPMk9Q/KBWCES8dm32+HpXk1ExkViYS6g=";
+              hash = "sha256-OWhUiD0PH2cuzMwNKWqtxghUkb/D5GzYWiOIr/F8Eak=";
             };
 
             nativeBuildInputs = [
