@@ -2,8 +2,8 @@
 
 `my-prompt` is my personal shell prompt I use every day. It is a small
 Rust CLI inspired by [prmt](https://github.com/3axap4eHko/prmt), with Fish
-integration, Git and direnv awareness, a transient prompt, and a Claude Code
-status line.
+integration, Git and direnv awareness, an SSH hostname segment, a transient
+prompt, and a Claude Code status line.
 
 The config is intentionally opinionated, while the implementation, tests,
 packaging, and release process help me learn more about Rust and its ecosystem.

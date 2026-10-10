@@ -1,5 +1,5 @@
 use crate::module_trait::{Module, ModuleContext};
-use crate::modules::{character, claude, direnv, envs, fail, git, path, time, username};
+use crate::modules::{character, claude, direnv, envs, fail, git, hostname, path, time, username};
 use rayon::prelude::*;
 
 #[derive(Debug)]
@@ -10,6 +10,7 @@ pub(crate) enum PromptModule {
     Fail,
     Envs,
     Git,
+    Hostname,
     Path,
     Time,
     Username,
@@ -24,6 +25,7 @@ impl PromptModule {
             Self::Fail => fail::FailModule.render(context),
             Self::Envs => envs::EnvsModule.render(context),
             Self::Git => git::GitModule.render(context),
+            Self::Hostname => hostname::HostnameModule.render(context),
             Self::Path => path::PathModule.render(context),
             Self::Time => time::TimeModule.render(context),
             Self::Username => username::UsernameModule.render(context),
@@ -34,6 +36,7 @@ impl PromptModule {
 pub(crate) const PROMPT_FORMAT: &[PromptModule] = &[
     PromptModule::Fail,
     PromptModule::Username,
+    PromptModule::Hostname,
     PromptModule::Path,
     PromptModule::Envs,
     PromptModule::Direnv,

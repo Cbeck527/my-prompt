@@ -16,6 +16,8 @@ mod style;
 use module_trait::{EnvironmentState, GitBackend, ModuleContext};
 
 const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
+/// Variables set by OpenSSH in remote sessions; any one marks the prompt as remote.
+const SSH_SESSION_ENVS: [&str; 3] = ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"];
 const FISH_INIT: &str = include_str!("init/my-prompt.fish");
 const WARM_BENCHMARK_RUNS: u16 = 100;
 
@@ -184,7 +186,25 @@ fn module_context(
             nix_shell: std::env::var_os("IN_NIX_SHELL").is_some(),
             virtual_env: std::env::var_os("VIRTUAL_ENV").is_some(),
         },
+        hostname: ssh_hostname(),
     }
+}
+
+/// Looks up the short hostname only when the prompt is running over SSH.
+fn ssh_hostname() -> Option<String> {
+    let ssh_values = SSH_SESSION_ENVS.map(std::env::var_os);
+    if !ssh_session(ssh_values.iter().map(Option::as_deref)) {
+        return None;
+    }
+
+    let hostname = whoami::hostname().ok()?;
+    modules::hostname::short_hostname(&hostname).map(str::to_owned)
+}
+
+fn ssh_session<'a>(environment_values: impl IntoIterator<Item = Option<&'a OsStr>>) -> bool {
+    environment_values
+        .into_iter()
+        .any(|value| value.is_some_and(|value| !value.is_empty()))
 }
 
 fn no_color_requested(flag: bool, environment_value: Option<&OsStr>) -> bool {
@@ -337,6 +357,18 @@ mod tests {
         use std::os::unix::ffi::OsStrExt;
 
         assert!(no_color_requested(false, Some(OsStr::from_bytes(&[0xff]))));
+    }
+
+    #[test]
+    fn ssh_session_requires_a_nonempty_variable() {
+        assert!(!ssh_session([None, None, None]));
+        assert!(!ssh_session([Some(OsStr::new("")), None, None]));
+        assert!(ssh_session([None, None, Some(OsStr::new("/dev/ttys001"))]));
+        assert!(ssh_session([
+            Some(OsStr::new("10.0.0.2 52000 10.0.0.1 22")),
+            None,
+            None
+        ]));
     }
 
     #[test]

@@ -4,6 +4,7 @@ pub(crate) mod direnv;
 pub(crate) mod envs;
 pub(crate) mod fail;
 pub(crate) mod git;
+pub(crate) mod hostname;
 pub(crate) mod path;
 pub(crate) mod time;
 pub(crate) mod username;

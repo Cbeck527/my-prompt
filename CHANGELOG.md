@@ -8,6 +8,8 @@ minor version.
 
 ### Added
 
+- Added a hostname segment after the username in SSH sessions, rendered as
+  `chris@host` and detected from `SSH_CONNECTION`, `SSH_CLIENT`, or `SSH_TTY`.
 - Added the static Astro portfolio site for `cmb.software/my-prompt/` and its
   path-scoped Cloudflare Workers deployment configuration.
 - Added a public Cachix binary cache at `my-prompt.cachix.org` for every

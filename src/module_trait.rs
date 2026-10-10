@@ -26,6 +26,8 @@ pub(crate) struct ModuleContext {
     pub(crate) git_backend: GitBackend,
     pub(crate) direnv_status_json: Option<String>,
     pub(crate) environments: EnvironmentState,
+    /// Short hostname, present only in SSH sessions.
+    pub(crate) hostname: Option<String>,
 }
 
 pub(crate) trait Module: Send + Sync {
