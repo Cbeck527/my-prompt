@@ -6,6 +6,11 @@ minor version.
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed Rust, website, and Nix dependencies, including `gix` 0.89, which
+  drops the yanked `bisync` crate, and `dirs` 7.
+
 ## [0.3.1] - 2026-10-10
 
 ### Added
