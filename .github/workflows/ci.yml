@@ -41,7 +41,7 @@ jobs:
         run: test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # v21
+        uses: DeterminateSystems/nix-installer-action@2cb76beab460be7e44442c7ebdcbc30b638416df # v21
 
       - name: Require Cachix write token
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
