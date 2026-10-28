@@ -16,6 +16,8 @@ mod style;
 use module_trait::{EnvironmentState, GitBackend, ModuleContext};
 
 const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
+/// Session name set by zmx inside an attached session.
+const ZMX_SESSION_ENV: &str = "ZMX_SESSION";
 /// Variables set by OpenSSH in remote sessions; any one marks the prompt as remote.
 const SSH_SESSION_ENVS: [&str; 3] = ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"];
 const FISH_INIT: &str = include_str!("init/my-prompt.fish");
@@ -175,6 +177,9 @@ fn module_context(
     let direnv_status_json = std::env::var(DIRENV_STATUS_JSON_ENV)
         .ok()
         .filter(|status_json| !status_json.is_empty());
+    let zmx_session = std::env::var(ZMX_SESSION_ENV)
+        .ok()
+        .filter(|session| !session.is_empty());
 
     ModuleContext {
         exit_code,
@@ -187,6 +192,7 @@ fn module_context(
             virtual_env: std::env::var_os("VIRTUAL_ENV").is_some(),
         },
         hostname: ssh_hostname(),
+        zmx_session,
     }
 }
 

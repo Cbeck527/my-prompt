@@ -7,6 +7,7 @@ pub(crate) enum Color {
     Magenta,
     Cyan,
     White,
+    BrightYellow,
 }
 
 impl Color {
@@ -19,6 +20,7 @@ impl Color {
             Self::Magenta => "\x1b[35m",
             Self::Cyan => "\x1b[36m",
             Self::White => "\x1b[37m",
+            Self::BrightYellow => "\x1b[93m",
         }
     }
 }
@@ -55,6 +57,14 @@ mod tests {
     fn normal_color_uses_ansi_foreground_code() {
         assert_eq!(AnsiStyle::new(Color::Red, false).start_codes(), "\x1b[31m");
         assert_eq!(AnsiStyle::new(Color::Blue, false).start_codes(), "\x1b[34m");
+    }
+
+    #[test]
+    fn bright_color_uses_ansi_bright_foreground_code() {
+        assert_eq!(
+            AnsiStyle::new(Color::BrightYellow, false).start_codes(),
+            "\x1b[93m"
+        );
     }
 
     #[test]

@@ -28,6 +28,8 @@ pub(crate) struct ModuleContext {
     pub(crate) environments: EnvironmentState,
     /// Short hostname, present only in SSH sessions.
     pub(crate) hostname: Option<String>,
+    /// zmx session name, present only inside a zmx session.
+    pub(crate) zmx_session: Option<String>,
 }
 
 pub(crate) trait Module: Send + Sync {
