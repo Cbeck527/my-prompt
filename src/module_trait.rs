@@ -18,6 +18,17 @@ pub(crate) struct EnvironmentState {
     pub(crate) virtual_env: bool,
 }
 
+/// Where the prompt is running, which decides how the user and machine are shown.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) enum Host {
+    #[default]
+    Local,
+    /// Short hostname of the machine reached over SSH.
+    Ssh(String),
+    /// Name of the Coder workspace.
+    Coder(String),
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct ModuleContext {
     pub(crate) exit_code: Option<i32>,
@@ -26,8 +37,7 @@ pub(crate) struct ModuleContext {
     pub(crate) git_backend: GitBackend,
     pub(crate) direnv_status_json: Option<String>,
     pub(crate) environments: EnvironmentState,
-    /// Short hostname, present only in SSH sessions.
-    pub(crate) hostname: Option<String>,
+    pub(crate) host: Host,
     /// zmx session name, present only inside a zmx session.
     pub(crate) zmx_session: Option<String>,
 }

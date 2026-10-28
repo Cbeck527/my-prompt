@@ -1,6 +1,6 @@
 use crate::module_trait::{Module, ModuleContext};
 use crate::modules::{
-    character, claude, direnv, envs, fail, git, hostname, path, time, username, zmx,
+    character, claude, coder, direnv, envs, fail, git, hostname, path, time, username, zmx,
 };
 use rayon::prelude::*;
 
@@ -8,6 +8,7 @@ use rayon::prelude::*;
 pub(crate) enum PromptModule {
     Character,
     Claude,
+    Coder,
     Direnv,
     Fail,
     Envs,
@@ -24,6 +25,7 @@ impl PromptModule {
         match self {
             Self::Character => character::CharacterModule.render(context),
             Self::Claude => claude::ClaudeModule.render(context),
+            Self::Coder => coder::CoderModule.render(context),
             Self::Direnv => direnv::DirenvModule.render(context),
             Self::Fail => fail::FailModule.render(context),
             Self::Envs => envs::EnvsModule.render(context),
@@ -41,6 +43,7 @@ pub(crate) const PROMPT_FORMAT: &[PromptModule] = &[
     PromptModule::Fail,
     PromptModule::Username,
     PromptModule::Hostname,
+    PromptModule::Coder,
     PromptModule::Path,
     PromptModule::Zmx,
     PromptModule::Envs,

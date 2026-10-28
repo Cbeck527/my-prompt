@@ -10,6 +10,9 @@ minor version.
 
 - Added a zmx session segment after the path, rendered as `[+zmx: name]` in
   bright yellow and detected from a non-empty `ZMX_SESSION`.
+- Added a Coder workspace segment, rendered as `[coder: name]` in place of the
+  username and SSH hostname when `CODER` is `true` and `CODER_WORKSPACE_NAME`
+  is non-empty.
 
 ## [0.3.1] - 2026-10-10
 

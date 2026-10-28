@@ -1,5 +1,6 @@
 pub(crate) mod character;
 pub(crate) mod claude;
+pub(crate) mod coder;
 pub(crate) mod direnv;
 pub(crate) mod envs;
 pub(crate) mod fail;

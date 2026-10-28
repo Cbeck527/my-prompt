@@ -13,13 +13,17 @@ mod modules;
 mod prompt;
 mod style;
 
-use module_trait::{EnvironmentState, GitBackend, ModuleContext};
+use module_trait::{EnvironmentState, GitBackend, Host, ModuleContext};
 
 const DIRENV_STATUS_JSON_ENV: &str = "MY_PROMPT_DIRENV_STATUS_JSON";
 /// Session name set by zmx inside an attached session.
 const ZMX_SESSION_ENV: &str = "ZMX_SESSION";
 /// Variables set by OpenSSH in remote sessions; any one marks the prompt as remote.
 const SSH_SESSION_ENVS: [&str; 3] = ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"];
+/// Set to `true` by Coder inside a workspace.
+const CODER_ENV: &str = "CODER";
+/// Workspace name set by Coder inside a workspace.
+const CODER_WORKSPACE_NAME_ENV: &str = "CODER_WORKSPACE_NAME";
 const FISH_INIT: &str = include_str!("init/my-prompt.fish");
 const WARM_BENCHMARK_RUNS: u16 = 100;
 
@@ -191,9 +195,30 @@ fn module_context(
             nix_shell: std::env::var_os("IN_NIX_SHELL").is_some(),
             virtual_env: std::env::var_os("VIRTUAL_ENV").is_some(),
         },
-        hostname: ssh_hostname(),
+        host: host(),
         zmx_session,
     }
+}
+
+/// Detects a Coder workspace first, then an SSH session, else a local machine.
+fn host() -> Host {
+    let workspace_name = coder_workspace_name(
+        std::env::var_os(CODER_ENV).as_deref(),
+        std::env::var(CODER_WORKSPACE_NAME_ENV).ok(),
+    );
+    if let Some(workspace_name) = workspace_name {
+        return Host::Coder(workspace_name);
+    }
+
+    ssh_hostname().map_or(Host::Local, Host::Ssh)
+}
+
+fn coder_workspace_name(coder: Option<&OsStr>, workspace_name: Option<String>) -> Option<String> {
+    if coder != Some(OsStr::new("true")) {
+        return None;
+    }
+
+    workspace_name.filter(|name| !name.is_empty())
 }
 
 /// Looks up the short hostname only when the prompt is running over SSH.
@@ -375,6 +400,23 @@ mod tests {
             None,
             None
         ]));
+    }
+
+    #[test]
+    fn coder_workspace_name_requires_coder_true_and_a_nonempty_name() {
+        let name = || Some("wumbo".to_owned());
+
+        assert_eq!(
+            coder_workspace_name(Some(OsStr::new("true")), name()),
+            name()
+        );
+        assert_eq!(coder_workspace_name(None, name()), None);
+        assert_eq!(coder_workspace_name(Some(OsStr::new("1")), name()), None);
+        assert_eq!(
+            coder_workspace_name(Some(OsStr::new("true")), Some(String::new())),
+            None
+        );
+        assert_eq!(coder_workspace_name(Some(OsStr::new("true")), None), None);
     }
 
     #[test]

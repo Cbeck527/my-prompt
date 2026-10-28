@@ -1,11 +1,14 @@
-use crate::module_trait::{Module, ModuleContext};
+use crate::module_trait::{Host, Module, ModuleContext};
 use crate::modules::utils::sanitize_display_text;
 
 pub(crate) struct HostnameModule;
 
 impl Module for HostnameModule {
     fn render(&self, context: &ModuleContext) -> Option<String> {
-        let hostname = sanitize_display_text(context.hostname.as_deref()?);
+        let Host::Ssh(hostname) = &context.host else {
+            return None;
+        };
+        let hostname = sanitize_display_text(hostname);
 
         if context.no_color {
             Some(format!("@{hostname} "))
@@ -33,23 +36,24 @@ pub(crate) fn short_hostname(hostname: &str) -> Option<&str> {
 mod tests {
     use super::*;
 
-    fn render(hostname: Option<&str>) -> Option<String> {
+    fn render(host: Host) -> Option<String> {
         HostnameModule.render(&ModuleContext {
             no_color: true,
-            hostname: hostname.map(str::to_owned),
+            host,
             ..ModuleContext::default()
         })
     }
 
     #[test]
     fn no_hostname_segment_is_rendered_outside_ssh() {
-        assert_eq!(render(None), None);
+        assert_eq!(render(Host::Local), None);
+        assert_eq!(render(Host::Coder("wumbo".to_owned())), None);
     }
 
     #[test]
     fn hostname_is_rendered_from_the_context_snapshot() {
         assert_eq!(
-            render(Some("remote-host")),
+            render(Host::Ssh("remote-host".to_owned())),
             Some("@remote-host ".to_owned())
         );
     }
